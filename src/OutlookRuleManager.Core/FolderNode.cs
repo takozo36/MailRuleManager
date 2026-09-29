@@ -1,9 +1,9 @@
 namespace OutlookRuleManager.Core;
 
-/// <summary>移動先を選ぶためのフォルダーツリーの 1 ノード。</summary>
+/// <summary>One node of the folder tree used to choose a move-to folder.</summary>
 public sealed record FolderNode(string Name, FolderRef Folder, IReadOnlyList<FolderNode> Children)
 {
-    /// <summary>自分と子孫を上から順に列挙する。</summary>
+    /// <summary>Enumerates this node and all descendants, top-down.</summary>
     public IEnumerable<FolderNode> Descendants()
     {
         yield return this;
@@ -12,7 +12,7 @@ public sealed record FolderNode(string Name, FolderRef Folder, IReadOnlyList<Fol
                 yield return d;
     }
 
-    /// <summary>検索語（空白区切りで AND）にパスが一致するフォルダーを返す。</summary>
+    /// <summary>Folders whose path matches the search terms (space-separated, all must match).</summary>
     public static IEnumerable<FolderNode> Search(IEnumerable<FolderNode> roots, string? query)
     {
         var terms = RuleFilter.SplitTerms(query);

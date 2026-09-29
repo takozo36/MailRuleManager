@@ -1,14 +1,13 @@
 using OutlookRuleManager.Core;
-using static OutlookRuleManager.Outlook.OutlookCom;
 
 namespace OutlookRuleManager.Outlook;
 
-/// <summary>Outlook の Rule オブジェクト（遅延バインディング）を RuleData に読み替える。</summary>
+/// <summary>Converts an Outlook Rule object (late bound) into RuleData.</summary>
 internal static class OutlookRuleReader
 {
     public static RuleData Read(dynamic rule, int index)
     {
-        string name = "(名前を取得できません)";
+        string name = Loc.T("(名前を取得できません)", "(name unavailable)");
         try
         {
             name = (string)rule.Name;
@@ -55,7 +54,7 @@ internal static class OutlookRuleReader
         ConditionType.Category => Texts((object?)cs.Category.Categories),
         ConditionType.FormName => Texts((object?)cs.FormName.FormName),
         ConditionType.FromRssFeed => Texts((object?)cs.FromRssFeed.FromRssFeed),
-        ConditionType.Importance => [RuleValue.Text(ImportanceText((int)cs.Importance.Importance))],
+        ConditionType.Importance => [RuleValue.Importance((int)cs.Importance.Importance)],
         ConditionType.Account => [RuleValue.Text((string?)cs.Account.Account?.DisplayName ?? "")],
         ConditionType.SenderInAddressBook => [RuleValue.Text((string?)cs.SenderInAddressList.AddressList?.Name ?? "")],
         _ => Array.Empty<RuleValue>(),
@@ -90,7 +89,7 @@ internal static class OutlookRuleReader
         _ => Array.Empty<RuleValue>(),
     };
 
-    /// <summary>移動先フォルダー。削除済みなどで取れなければ null（＝エラーのルール）。</summary>
+    /// <summary>Move-to folder, or null if it cannot be obtained (e.g. deleted) — that makes the rule an error.</summary>
     private static FolderRef? ReadFolder(Func<object?> getFolder)
     {
         try
@@ -112,13 +111,13 @@ internal static class OutlookRuleReader
         foreach (dynamic r in recipients)
         {
             string? address = null;
-            try { address = (string?)r.Address; } catch { /* 未解決の宛先では例外になることがある */ }
+            try { address = (string?)r.Address; } catch { /* may throw for unresolved recipients */ }
             list.Add(RuleValue.Address((string?)r.Name, address, (bool)r.Resolved));
         }
         return list;
     }
 
-    /// <summary>文字列の配列（COM の VARIANT 配列）または単一の文字列を値の一覧にする。</summary>
+    /// <summary>Turns a string array (COM VARIANT array) or a single string into values.</summary>
     private static IReadOnlyList<RuleValue> Texts(object? value) => value switch
     {
         null => Array.Empty<RuleValue>(),
@@ -127,17 +126,9 @@ internal static class OutlookRuleReader
         _ => [RuleValue.Text(value.ToString() ?? "")],
     };
 
-
     private static IReadOnlyList<RuleValue> SafeValues(Func<IReadOnlyList<RuleValue>> read)
     {
         try { return read(); }
-        catch (Exception ex) { return [new RuleValue($"(値を読み取れません: {ex.Message})", "")]; }
+        catch (Exception ex) { return [new RuleValue(Loc.T($"(値を読み取れません: {ex.Message})", $"(value unavailable: {ex.Message})"), "")]; }
     }
-
-    private static string ImportanceText(int importance) => importance switch
-    {
-        OlImportanceHigh => "高",
-        OlImportanceLow => "低",
-        _ => "標準",
-    };
 }

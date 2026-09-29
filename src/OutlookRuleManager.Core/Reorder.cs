@@ -1,12 +1,12 @@
 namespace OutlookRuleManager.Core;
 
-/// <summary>並べ替えの計算（一覧を受け取って新しい並びを返すだけの純粋な関数）。</summary>
+/// <summary>Reordering calculations (pure functions that take a list and return the new order).</summary>
 internal static class Reorder
 {
     public static List<RuleEntry> MoveUp(IReadOnlyList<RuleEntry> entries, ISet<string> selected, ISet<string>? visible)
     {
         var (slots, view) = VisibleView(entries, visible);
-        // 上から順に、直前が非選択なら入れ替える（連続した選択はまとまって 1 つ上へ動く）
+        // From the top, swap with the previous item if it is not selected (adjacent selections move up together)
         for (int i = 1; i < view.Count; i++)
             if (selected.Contains(view[i].Id) && !selected.Contains(view[i - 1].Id))
                 (view[i - 1], view[i]) = (view[i], view[i - 1]);
@@ -33,7 +33,7 @@ internal static class Reorder
 
     public static List<RuleEntry> MoveBefore(IReadOnlyList<RuleEntry> entries, ISet<string> selected, string? targetId)
     {
-        // 移動するルール自身の直前が指定されたら、その後ろで最初の「移動しないルール」の直前とみなす
+        // Dropping right before a rule that is itself being moved means "before the next rule that is not moving"
         if (targetId is not null && selected.Contains(targetId))
         {
             int at = entries.ToList().FindIndex(e => e.Id == targetId);
@@ -47,7 +47,7 @@ internal static class Reorder
         return rest;
     }
 
-    /// <summary>表示中のルールの位置（slots）と、その並び（view）を取り出す。</summary>
+    /// <summary>Positions of the visible rules (slots) and their current order (view).</summary>
     private static (List<int> slots, List<RuleEntry> view) VisibleView(IReadOnlyList<RuleEntry> entries, ISet<string>? visible)
     {
         var slots = new List<int>();

@@ -1,29 +1,31 @@
 using System.Text;
+using static OutlookRuleManager.Core.Loc;
 
 namespace OutlookRuleManager.Core;
 
-/// <summary>ルールのまとめデータを解析できなかった（知らない要素・壊れたデータ）。</summary>
+/// <summary>The rules stream could not be parsed (unknown element or broken data).</summary>
 public sealed class RulesStreamFormatException(string message) : Exception(message);
 
 /// <summary>
-/// Outlook（クラシック）が受信トレイの隠しメッセージ（IPM.RuleOrganizer）の PR_RW_RULES_STREAM に
-/// まとめて保存している、全ルールのバイナリを読む。ルールのエクスポート（.rwz）と同じ形式。
+/// Reads the binary that Outlook Classic stores for all rules in PR_RW_RULES_STREAM of the hidden message
+/// (message class IPM.RuleOrganizer) in the Inbox. It has the same format as an exported .rwz file.
 ///
-/// 形式は Microsoft の非公開仕様で、次のオープンソース（いずれも MIT License）の解析結果をもとに C# で実装した:
-///   - asklar/rwzreader  https://github.com/asklar/rwzreader  （Copyright (c) 2021 Alexander Sklar）
-///   - hughbe/OutlookRulesReader  https://github.com/hughbe/OutlookRulesReader  （Copyright (c) 2021 Hugh Bellamy）
-/// 両ライセンスの全文は THIRD-PARTY-NOTICES.md にある。
+/// The format is not documented by Microsoft. This C# implementation is based on the format analysis of the
+/// following open-source projects (both MIT License):
+///   - asklar/rwzreader  https://github.com/asklar/rwzreader  (Copyright (c) 2021 Alexander Sklar)
+///   - hughbe/OutlookRulesReader  https://github.com/hughbe/OutlookRulesReader  (Copyright (c) 2021 Hugh Bellamy)
+/// The full license texts are in THIRD-PARTY-NOTICES.md.
 ///
-/// 移動先フォルダーはバイナリの EntryID のまま返す（FolderRef.Path は空）。パスへの変換と
-/// 存在確認は Outlook 連携側で行う。要素には長さの情報がないので、知らない要素があると
-/// 以降を読めない。その場合は RulesStreamFormatException を投げる（呼び出し側は 1 件ずつの読み込みに切り替える）。
+/// Move-to folders are returned as raw EntryIDs (FolderRef.Path is empty); resolving them to paths and checking
+/// that they exist is done by the Outlook layer. Elements carry no length, so an unknown element makes the rest
+/// unreadable; in that case RulesStreamFormatException is thrown (the caller falls back to reading rule by rule).
 /// </summary>
 public static class RulesStream
 {
     /// <summary>
-    /// 全ルールを読む。戻り値の Index は 1 始まりの実行順。
-    /// 「このコンピューターのみ」の条件は、どのコンピューターかをこのデータだけでは判定できないため
-    /// NeedsMachineCheck を立てて返す（呼び出し側で Outlook に確認して LocalMachineOnly / OtherMachine を決める）。
+    /// Parses all rules. Index of each result is the 1-based execution order.
+    /// For "on this computer only", this data alone cannot tell which computer is meant, so NeedsMachineCheck is set
+    /// (the caller asks Outlook and decides between LocalMachineOnly and OtherMachine).
     /// </summary>
     public static IReadOnlyList<StreamRule> Parse(byte[] data)
     {
@@ -34,7 +36,7 @@ public static class RulesStream
             var rules = new List<StreamRule>(count);
             for (int i = 0; i < count; i++)
             {
-                if (i > 0) r.U16(); // ルール間の区切り（.rwz では 0、ルールのまとめデータでは別の値。使わない）
+                if (i > 0) r.U16(); // separator between rules (0 in .rwz, another value in the rules stream; unused)
                 rules.Add(ReadRule(r, i + 1));
             }
             return rules;
@@ -42,7 +44,7 @@ public static class RulesStream
         catch (RulesStreamFormatException) { throw; }
         catch (Exception ex) when (ex is ArgumentOutOfRangeException or IndexOutOfRangeException or DecoderFallbackException)
         {
-            throw new RulesStreamFormatException($"位置 {r.Offset} でデータが途切れています: {ex.Message}");
+            throw new RulesStreamFormatException(T($"位置 {r.Offset} でデータが途切れています: {ex.Message}", $"Data ends unexpectedly at offset {r.Offset}: {ex.Message}"));
         }
     }
 
@@ -50,7 +52,8 @@ public static class RulesStream
     {
         uint signature = r.U32();
         bool hasSignature = signature is 1310720 or 1200000 or 1100000 or 1000000 or 980413 or 970812 or 0;
-        if (!hasSignature) throw new RulesStreamFormatException($"ルールデータの先頭が想定と違います (0x{signature:X8})。");
+        if (!hasSignature)
+            throw new RulesStreamFormatException(T($"ルールデータの先頭が想定と違います (0x{signature:X8})。", $"Unexpected rules data signature (0x{signature:X8})."));
         bool newer = signature is 1310720 or 1200000 or 1100000 or 1000000;
         if (newer) r.U32(); // flags
         for (int k = 1; k <= 8; k++) r.U32();
@@ -62,7 +65,7 @@ public static class RulesStream
 
     private static StreamRule ReadRule(Reader r, int index)
     {
-        r.U16(); // 署名（使わない）
+        r.U16(); // signature (unused)
         string name = r.StringObject();
         bool enabled = r.U32() != 0;
         for (int k = 0; k < 4; k++) r.U32();
@@ -79,7 +82,7 @@ public static class RulesStream
         var rule = new StreamRule { Index = index, Name = name, Enabled = enabled };
         for (int e = 0; e < elementCount; e++)
         {
-            if (e > 0) r.U16(); // 要素間の区切り 0x8001
+            if (e > 0) r.U16(); // separator between elements (0x8001)
             ReadElement(r, rule);
         }
         return rule;
@@ -99,13 +102,13 @@ public static class RulesStream
 
         if (ConditionIds.TryGetValue(id, out var cond))
         {
-            rule.Conditions.Add(ReadCondition(r, id, cond.Type, cond.Data));
+            rule.Conditions.Add(new RuleCondition(cond.Type, ReadData(r, cond.Data, out _, out _)));
             if (cond.Type == ConditionType.LocalMachineOnly) rule.NeedsMachineCheck = true;
             return;
         }
         if (ExceptionIds.TryGetValue(id, out var exc))
         {
-            rule.Exceptions.Add(ReadCondition(r, id, exc.Type, exc.Data));
+            rule.Exceptions.Add(new RuleCondition(exc.Type, ReadData(r, exc.Data, out _, out _)));
             return;
         }
         if (ActionIds.TryGetValue(id, out var act))
@@ -113,13 +116,7 @@ public static class RulesStream
             rule.Actions.Add(ReadAction(r, act.Type, act.Data));
             return;
         }
-        throw new RulesStreamFormatException($"ルール「{rule.Name}」に未知の要素 0x{id:X} があります。");
-    }
-
-    private static RuleCondition ReadCondition(Reader r, uint id, ConditionType type, DataKind kind)
-    {
-        var values = ReadData(r, kind, out _, out _);
-        return new RuleCondition(type, values);
+        throw new RulesStreamFormatException(T($"ルール「{rule.Name}」に未知の要素 0x{id:X} があります。", $"Rule \"{rule.Name}\" contains an unknown element 0x{id:X}."));
     }
 
     private static RuleAction ReadAction(Reader r, ActionType type, DataKind kind)
@@ -131,7 +128,7 @@ public static class RulesStream
         return new RuleAction(type, values);
     }
 
-    /// <summary>要素の中身を読む。移動・コピー先は EntryID（16 進文字列）を返す。</summary>
+    /// <summary>Reads the payload of an element. For move / copy, returns the EntryIDs as hex strings.</summary>
     private static IReadOnlyList<RuleValue> ReadData(Reader r, DataKind kind, out string? folderEid, out string? storeEid)
     {
         folderEid = storeEid = null;
@@ -181,7 +178,7 @@ public static class RulesStream
             case DataKind.Importance:
             {
                 r.U32(); r.U32();
-                return [RuleValue.Text(r.U32() switch { 0 => "低", 2 => "高", _ => "標準" })];
+                return [RuleValue.Importance((int)r.U32())];
             }
 
             case DataKind.OneNumber:
@@ -193,7 +190,7 @@ public static class RulesStream
                 r.U32(); r.U32();
                 folderEid = SizedHex(r);
                 storeEid = SizedHex(r);
-                r.StringObject(); // フォルダー名（パスは Outlook に問い合わせる）
+                r.StringObject(); // folder name (the full path is resolved through Outlook)
                 r.U32();
                 return Array.Empty<RuleValue>();
             }
@@ -250,7 +247,7 @@ public static class RulesStream
                     list.Add(RuleValue.Text(r.StringObject()));
                     int len = r.U8();
                     r.Bytes(len);
-                    while (r.Remaining > 0 && r.PeekU8() == 0) r.U8(); // 詰め物
+                    while (r.Remaining > 0 && r.PeekU8() == 0) r.U8(); // padding
                 }
                 return list;
             }
@@ -272,7 +269,7 @@ public static class RulesStream
             }
 
             default:
-                throw new RulesStreamFormatException($"内部エラー: 未対応のデータ種別 {kind}");
+                throw new RulesStreamFormatException($"Internal error: unsupported data kind {kind}");
         }
     }
 
@@ -284,8 +281,8 @@ public static class RulesStream
     }
 
     /// <summary>
-    /// 宛先 1 件（MAPI のプロパティ値の並び）。表示名・メールアドレスを取り出す。
-    /// EntryID を持たない宛先は「アドレス帳で解決できていない」とみなす。
+    /// One recipient (an array of MAPI property values). Extracts the display name and the e-mail address.
+    /// A recipient without an EntryID is treated as not resolved in the address book.
     /// </summary>
     private static RuleValue ReadRecipient(Reader r)
     {
@@ -305,7 +302,7 @@ public static class RulesStream
             uint d2 = r.U32();
             switch (type)
             {
-                case 0x1F: // PtypString（UTF-16、NUL 終端）
+                case 0x1F: // PtypString (UTF-16, NUL-terminated)
                 {
                     string s = r.Utf16ZAt(start + (int)d1, end);
                     if (pid == 0x3001) name = s;
@@ -330,7 +327,7 @@ public static class RulesStream
         return RuleValue.Address(name, email ?? smtp, hasEntryId);
     }
 
-    // ---- 要素 ID と、Outlook のオブジェクトモデルでの種類の対応 ----
+    // ---- Element IDs and the corresponding types in the Outlook object model ----
 
     private enum DataKind
     {
@@ -364,16 +361,16 @@ public static class RulesStream
         [0xE5] = (ConditionType.RecipientAddress, DataKind.Strings),
         [0xE6] = (ConditionType.SenderAddress, DataKind.Strings),
         [0xE8] = (ConditionType.MessageHeader, DataKind.Strings),
-        [0xE9] = (ConditionType.Unknown, DataKind.Simple),   // 例外リストの差出人
-        [0xEB] = (ConditionType.Unknown, DataKind.Simple),   // 迷惑メールの疑い
-        [0xEC] = (ConditionType.Unknown, DataKind.Simple),   // 成人向けコンテンツ
-        [0xED] = (ConditionType.Unknown, DataKind.SizeRange), // 関連度
+        [0xE9] = (ConditionType.Unknown, DataKind.Simple),   // from senders on my exception list
+        [0xEB] = (ConditionType.Unknown, DataKind.Simple),   // suspected junk e-mail
+        [0xEC] = (ConditionType.Unknown, DataKind.Simple),   // adult content
+        [0xED] = (ConditionType.Unknown, DataKind.SizeRange), // relevance range
         [0xEE] = (ConditionType.Account, DataKind.OneString),
         [0xEF] = (ConditionType.LocalMachineOnly, DataKind.Machine),
         [0xF0] = (ConditionType.SenderInAddressBook, DataKind.OneString),
         [0xF1] = (ConditionType.MeetingInviteOrUpdate, DataKind.Simple),
-        [0xF2] = (ConditionType.Unknown, DataKind.Simple),   // 連絡先から
-        [0xF3] = (ConditionType.Unknown, DataKind.Simple),   // 購読から
+        [0xF2] = (ConditionType.Unknown, DataKind.Simple),   // from my contacts
+        [0xF3] = (ConditionType.Unknown, DataKind.Simple),   // from a subscription
         [0xF4] = (ConditionType.FormName, DataKind.FormType),
         [0xF5] = (ConditionType.FromRssFeed, DataKind.Strings),
         [0xF6] = (ConditionType.AnyCategory, DataKind.Simple),
@@ -408,7 +405,7 @@ public static class RulesStream
         [0x214] = (ConditionType.Account, DataKind.OneString),
         [0x215] = (ConditionType.SenderInAddressBook, DataKind.OneString),
         [0x216] = (ConditionType.MeetingInviteOrUpdate, DataKind.Simple),
-        [0x217] = (ConditionType.Unknown, DataKind.Simple),  // 連絡先から
+        [0x217] = (ConditionType.Unknown, DataKind.Simple),  // from my contacts
         [0x218] = (ConditionType.FormName, DataKind.FormType),
         [0x219] = (ConditionType.FromRssFeed, DataKind.Strings),
         [0x21A] = (ConditionType.AnyCategory, DataKind.Simple),
@@ -435,9 +432,9 @@ public static class RulesStream
         [0x13E] = (ActionType.Defer, DataKind.OneNumber),
         [0x13F] = (ActionType.CustomAction, DataKind.CustomAction),
         [0x142] = (ActionType.Stop, DataKind.Simple),
-        [0x143] = (ActionType.Unknown, DataKind.Simple),     // 商用・成人向けの検査をしない
+        [0x143] = (ActionType.Unknown, DataKind.Simple),     // do not search for commercial or adult content
         [0x144] = (ActionType.Redirect, DataKind.People),
-        [0x145] = (ActionType.Unknown, DataKind.Simple),     // 関連度を加算
+        [0x145] = (ActionType.Unknown, DataKind.Simple),     // add to relevance
         [0x146] = (ActionType.ServerReply, DataKind.ServerReply),
         [0x147] = (ActionType.ForwardAsAttachment, DataKind.People),
         [0x148] = (ActionType.Print, DataKind.Simple),
@@ -449,10 +446,10 @@ public static class RulesStream
         [0x150] = (ActionType.FlagColor, DataKind.Simple),
         [0x151] = (ActionType.MarkAsTask, DataKind.NumberAndString),
         [0x152] = (ActionType.ClearCategories, DataKind.Simple),
-        [0x153] = (ActionType.Unknown, DataKind.Retention),  // 保持ポリシー
+        [0x153] = (ActionType.Unknown, DataKind.Retention),  // apply retention policy
     };
 
-    /// <summary>リトルエンディアンの読み取り位置付きリーダー。</summary>
+    /// <summary>Little-endian reader with a position.</summary>
     private sealed class Reader(byte[] data)
     {
         public int Offset { get; set; }
@@ -460,21 +457,23 @@ public static class RulesStream
 
         public byte U8() => data[Offset++];
         public byte PeekU8() => data[Offset];
-        public ushort U16() { var v = BitConverter.ToUInt16(Take(2)); return v; }
-        public uint U32() { var v = BitConverter.ToUInt32(Take(4)); return v; }
-        public ulong U64() { var v = BitConverter.ToUInt64(Take(8)); return v; }
+        public ushort U16() => BitConverter.ToUInt16(Take(2));
+        public uint U32() => BitConverter.ToUInt32(Take(4));
+        public ulong U64() => BitConverter.ToUInt64(Take(8));
         public byte[] Bytes(int n) => Take(n).ToArray();
 
         private ReadOnlySpan<byte> Take(int n)
         {
             if (n < 0 || Offset + n > data.Length)
-                throw new RulesStreamFormatException($"位置 {Offset} から {n} バイトを読めません（全体 {data.Length} バイト）。");
+                throw new RulesStreamFormatException(T(
+                    $"位置 {Offset} から {n} バイトを読めません（全体 {data.Length} バイト）。",
+                    $"Cannot read {n} bytes at offset {Offset} (total {data.Length} bytes)."));
             var span = data.AsSpan(Offset, n);
             Offset += n;
             return span;
         }
 
-        /// <summary>長さ付きの UTF-16 文字列（長さ 1 バイト。0xFF のときは続く 2 バイトが長さで、その後 2 バイトを読み飛ばす）。</summary>
+        /// <summary>Length-prefixed UTF-16 string (1-byte length; if it is 0xFF, the next 2 bytes are the length and 2 more bytes are skipped).</summary>
         public string StringObject()
         {
             int len = U8();
@@ -502,7 +501,7 @@ public static class RulesStream
     }
 }
 
-/// <summary>ルールのまとめデータから読んだルール 1 件（移動先は EntryID のまま）。</summary>
+/// <summary>A rule read from the rules stream (move-to folders are still raw EntryIDs).</summary>
 public sealed class StreamRule
 {
     public required int Index { get; init; }
@@ -512,15 +511,15 @@ public sealed class StreamRule
     public List<RuleCondition> Conditions { get; } = new();
     public List<RuleCondition> Exceptions { get; } = new();
     public List<RuleAction> Actions { get; } = new();
-    /// <summary>「このコンピューターのみ」を含む（このPCか別のPCかは Outlook に確認が必要）。</summary>
+    /// <summary>Contains "on this computer only" (whether it means this computer must be asked from Outlook).</summary>
     public bool NeedsMachineCheck { get; set; }
 
     /// <summary>
-    /// RuleData にする。resolveFolder で移動・コピー先の EntryID をフォルダーに変換する（見つからなければ null）。
-    /// onThisMachine は「このコンピューターのみ」が このPC なら true、別のPCなら false。
-    /// isLocalRule は Outlook の Rule.IsLocalRule（サウンド・新着通知などクライアントでしか動かない処理を含むと true。
-    /// まとめデータからは判定しきれないので Outlook から受け取る）。
-    /// 条件・例外・処理は、Outlook のオブジェクトモデルが返す順（種類ごとに固定）に並べ直す。
+    /// Converts to RuleData. resolveFolder turns the EntryID of a move / copy destination into a folder (null if not found).
+    /// onThisMachine is true when "on this computer only" refers to this computer, false for another computer.
+    /// isLocalRule is Outlook's Rule.IsLocalRule (true when the rule contains client-only actions such as a sound or a
+    /// new item alert; it cannot be fully derived from the stream, so it is taken from Outlook).
+    /// Conditions, exceptions and actions are sorted into the order the Outlook object model returns them (fixed per type).
     /// </summary>
     public RuleData ToRuleData(Func<FolderRef, FolderRef?> resolveFolder, bool onThisMachine = true, bool isLocalRule = false)
     {
@@ -545,7 +544,7 @@ public sealed class StreamRule
         };
     }
 
-    // Outlook の RuleConditions / RuleActions を列挙したときの種類の順（Outlook クラシック x64 16.0 で実測）
+    // Order of types when enumerating Outlook's RuleConditions / RuleActions (measured on Outlook Classic x64 16.0)
     private static readonly int[] ConditionOrder = [4, 26, 9, 20, 11, 5, 10, 6, 3, 18, 13, 14, 15, 16, 17, 2, 23, 1, 12, 25, 27, 7, 8, 19, 21, 22, 24, 28, 29, 31, 30];
     private static readonly int[] ActionOrder = [1, 5, 4, 3, 24, 21, 25, 26, 27, 6, 7, 8, 2, 17, 29, 23, 9, 10, 11, 12, 13, 14, 15, 16, 19, 28, 18, 30];
 

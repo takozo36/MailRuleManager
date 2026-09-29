@@ -3,19 +3,20 @@ namespace OutlookRuleManager.Core;
 public enum RuleFilterMode
 {
     All,
-    /// <summary>エラーまたは警告があるもの。</summary>
+    /// <summary>Rules with an error or a warning.</summary>
     Problems,
     ErrorsOnly,
     Disabled,
-    /// <summary>未保存の変更があるもの（新規・名前・有効/無効・移動先）。</summary>
+    /// <summary>Rules with unsaved changes (new, renamed, enabled flag or move-to folder changed).</summary>
     Changed,
 }
 
 public static class RuleFilter
 {
     /// <summary>
-    /// 検索語（空白区切りで AND）と表示モードに一致するか。
-    /// 検索語は名前・条件・例外・処理・移動先を対象に、大文字小文字と全角半角の英数字を区別せずに探す。
+    /// Whether the rule matches the search terms (space-separated, all must match) and the filter mode.
+    /// Terms are searched in the name, conditions, exceptions, actions and move-to folder, ignoring the
+    /// differences listed in <see cref="Normalize"/>.
     /// </summary>
     public static bool Matches(RuleEntry entry, IReadOnlyList<Diagnostic> diagnostics, string? query, RuleFilterMode mode)
     {
@@ -41,8 +42,8 @@ public static class RuleFilter
             : Normalize(query).Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
 
     /// <summary>
-    /// 表記ゆれをそろえる: 全角英数字→半角、半角カナ→全角（NFKC）、ひらがな→カタカナ、
-    /// 小さいカナ→大きいカナ（「キャンプ」と「キヤンプ」を同じに扱う）、英字は小文字。
+    /// Normalizes text for search: full-width alphanumerics to half-width and half-width katakana to full-width (NFKC),
+    /// hiragana to katakana, small kana to normal kana (so "キャンプ" and "キヤンプ" match), and lower case.
     /// </summary>
     public static string Normalize(string s)
     {
@@ -50,7 +51,7 @@ public static class RuleFilter
         for (int i = 0; i < chars.Length; i++)
         {
             char c = chars[i];
-            if (c >= 'ぁ' && c <= 'ゖ') c = (char)(c + 0x60); // ひらがな → カタカナ
+            if (c >= 'ぁ' && c <= 'ゖ') c = (char)(c + 0x60); // hiragana -> katakana
             chars[i] = c switch
             {
                 'ァ' => 'ア', 'ィ' => 'イ', 'ゥ' => 'ウ', 'ェ' => 'エ', 'ォ' => 'オ',

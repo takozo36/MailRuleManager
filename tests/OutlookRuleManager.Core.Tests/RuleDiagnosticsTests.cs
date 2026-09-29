@@ -3,12 +3,12 @@ using static OutlookRuleManager.Core.Tests.TestRules;
 
 namespace OutlookRuleManager.Core.Tests;
 
-public class RuleDiagnosticsTests
+public class RuleDiagnosticsTests : JapaneseTestBase
 {
     private static List<RuleEntry> Entries(params RuleData[] rules) => rules.Select(RuleEntry.FromSource).ToList();
 
     [Fact]
-    public void 移動先フォルダーが消えたルールはエラー()
+    public void MissingMoveToFolderIsAnError()
     {
         var entries = Entries(FromRule(1, "壊れ", ["a@example.com"], folder: null));
         var d = DiagnosticsOf(entries, "壊れ");
@@ -16,7 +16,7 @@ public class RuleDiagnosticsTests
     }
 
     [Fact]
-    public void 移動先を指定し直すとエラーが消える()
+    public void ChoosingAFolderAgainClearsTheError()
     {
         var ed = new RuleListEditor([FromRule(1, "壊れ", ["a@example.com"], folder: null)]);
         ed.SetMoveFolder(["R1"], Folder("新"));
@@ -24,14 +24,14 @@ public class RuleDiagnosticsTests
     }
 
     [Fact]
-    public void 処理のないルールはエラー()
+    public void RuleWithoutActionsIsAnError()
     {
         var rule = new RuleData { Index = 1, Name = "空", Conditions = [new RuleCondition(ConditionType.HasAttachment)] };
         Assert.Contains(DiagnosticsOf(Entries(rule), "空"), x => x.Severity == Severity.Error);
     }
 
     [Fact]
-    public void 転送先を解決できないルールはエラー()
+    public void UnresolvedForwardRecipientIsAnError()
     {
         var rule = new RuleData
         {
@@ -43,14 +43,14 @@ public class RuleDiagnosticsTests
     }
 
     [Fact]
-    public void 読み取りに失敗したルールはエラー()
+    public void RuleThatCouldNotBeReadIsAnError()
     {
         var rule = new RuleData { Index = 1, Name = "読めない", ReadError = "RPC エラー" };
         Assert.Contains(DiagnosticsOf(Entries(rule), "読めない"), x => x.Severity == Severity.Error && x.Message.Contains("RPC エラー"));
     }
 
     [Fact]
-    public void サウンドファイルが無ければ警告()
+    public void MissingSoundFileIsAWarning()
     {
         var rule = new RuleData
         {
@@ -63,7 +63,7 @@ public class RuleDiagnosticsTests
     }
 
     [Fact]
-    public void 先のルールが同じ差出人で処理を中止するなら後のルールは届かない()
+    public void LaterRuleNeverRunsWhenAnEarlierRuleWithTheSameSenderStops()
     {
         var entries = Entries(
             FromRule(1, "先", ["a@example.com", "b@example.com"]),
@@ -73,7 +73,7 @@ public class RuleDiagnosticsTests
     }
 
     [Fact]
-    public void 先のルールが処理を中止しないなら届く_条件が同じことだけ知らせる()
+    public void WhenTheEarlierRuleDoesNotStop_OnlyInfoAboutIdenticalConditions()
     {
         var entries = Entries(
             FromRule(1, "先", ["a@example.com"], stop: false),
@@ -84,7 +84,7 @@ public class RuleDiagnosticsTests
     }
 
     [Fact]
-    public void 無効なルールは届かない判定に使わない()
+    public void DisabledRulesAreIgnoredForReachability()
     {
         var entries = Entries(
             FromRule(1, "先", ["a@example.com"], enabled: false),
@@ -93,7 +93,7 @@ public class RuleDiagnosticsTests
     }
 
     [Fact]
-    public void 差出人の一部だけが先のルールと重なる場合はその差出人だけ警告()
+    public void PartialSenderOverlap_WarnsOnlyForTheOverlappingSenders()
     {
         var entries = Entries(
             FromRule(1, "先", ["a@example.com"]),
@@ -105,7 +105,7 @@ public class RuleDiagnosticsTests
     }
 
     [Fact]
-    public void 件名の語_先のルールの語を含む語なら届かない()
+    public void SubjectWords_ContainingAnEarlierRulesWordAreNeverReached()
     {
         var entries = Entries(
             SubjectRule(1, "先", ["請求"]),
@@ -116,7 +116,7 @@ public class RuleDiagnosticsTests
     }
 
     [Fact]
-    public void 先のルールに例外があれば判断しない()
+    public void NoConclusionWhenTheEarlierRuleHasExceptions()
     {
         var first = FromRule(1, "先", ["a@example.com"]) with
         {
@@ -127,7 +127,7 @@ public class RuleDiagnosticsTests
     }
 
     [Fact]
-    public void このコンピューターのみ条件は比較で無視する()
+    public void ThisComputerOnlyIsIgnoredWhenComparing()
     {
         var first = FromRule(1, "先", ["a@example.com"]) with
         {
@@ -142,7 +142,7 @@ public class RuleDiagnosticsTests
     }
 
     [Fact]
-    public void 並び順を入れ替えると届かない判定も変わる()
+    public void SwappingTheOrderChangesTheReachabilityResult()
     {
         var ed = new RuleListEditor([
             FromRule(1, "広い", ["a@example.com", "b@example.com"]),

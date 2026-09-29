@@ -1,13 +1,25 @@
 using OutlookRuleManager.Core;
 
+// Loc.Current is global state, so tests must not run in parallel
+[assembly: CollectionBehavior(DisableTestParallelization = true)]
+
 namespace OutlookRuleManager.Core.Tests;
 
-/// <summary>テスト用のルールを手短に作るための部品。</summary>
+/// <summary>
+/// Base class for tests that check Japanese messages. Sets the UI language to Japanese regardless of the machine's
+/// Windows language (tests for English texts are in <see cref="LocalizationTests"/>).
+/// </summary>
+public abstract class JapaneseTestBase
+{
+    protected JapaneseTestBase() => Loc.Current = UiLanguage.Japanese;
+}
+
+/// <summary>Helpers to build test rules concisely.</summary>
 internal static class TestRules
 {
-    public static FolderRef Folder(string path) => new($@"\\me@example.com\受信トレイ\{path}", "EID-" + path, "SID");
+    public static FolderRef Folder(string path) => new($@"\\me@example.com\Inbox\{path}", "EID-" + path, "SID");
 
-    /// <summary>「差出人が from のいずれか → folder へ移動（→ 処理を中止）」のルール。</summary>
+    /// <summary>A rule "from any of these senders → move to folder (→ stop processing)".</summary>
     public static RuleData FromRule(int index, string name, string[] from, string? folder = "A", bool stop = true, bool enabled = true)
     {
         var actions = new List<RuleAction> { RuleAction.ToFolder(ActionType.MoveToFolder, folder is null ? null : Folder(folder)) };
@@ -32,7 +44,7 @@ internal static class TestRules
             : [RuleAction.ToFolder(ActionType.MoveToFolder, Folder("S"))],
     };
 
-    /// <summary>名前だけ違う単純なルールを count 件（R1, R2, ...）。</summary>
+    /// <summary>count simple rules that differ only in name (R1, R2, ...).</summary>
     public static List<RuleData> Simple(int count) =>
         Enumerable.Range(1, count).Select(i => FromRule(i, $"R{i}", [$"user{i}@example.com"])).ToList();
 

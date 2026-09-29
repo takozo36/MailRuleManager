@@ -7,20 +7,21 @@
     <UseWindowsForms>true</UseWindowsForms>
     <LangVersion>latest</LangVersion>
     <RootNamespace>OutlookRuleManager.App</RootNamespace>
-    <AssemblyName>Outlook仕訳ルール管理</AssemblyName>
+    <AssemblyName>OutlookRuleManager</AssemblyName>
+    <Product>Outlook Classic Rule Manager</Product>
     <FileVersion>0.1.0</FileVersion>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
   </PropertyGroup>
 
-  <!-- dotnet publish 時に単一exeにまとめる設定 -->
+  <!-- Settings used by dotnet publish to produce a single exe -->
   <PropertyGroup>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <PublishSingleFile>true</PublishSingleFile>
-    <!-- ネイティブDLLもexeに同梱し、実行時に %TEMP%\.net\{アプリ名}\ へ展開する -->
+    <!-- Bundle native libraries into the exe as well (extracted to %TEMP%\.net\{app}\ at run time) -->
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <EnableCompressionInSingleFile Condition="'$(SelfContained)' == 'true'">true</EnableCompressionInSingleFile>
-    <!-- false: .NETランタイムはPC側のものを使う (exeが小さい)。
-         ランタイム未導入のPCでも動かすなら true (exeが約100MB増) -->
+    <!-- false: use the .NET runtime installed on the PC (small exe).
+         Set to true to run on PCs without the runtime (the exe grows by about 100 MB). -->
     <SelfContained>false</SelfContained>
   </PropertyGroup>
 

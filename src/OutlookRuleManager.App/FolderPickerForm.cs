@@ -1,12 +1,13 @@
 using OutlookRuleManager.Core;
+using static OutlookRuleManager.Core.Loc;
 
 namespace OutlookRuleManager.App;
 
-/// <summary>移動先フォルダーを選ぶダイアログ。ツリーから選ぶか、検索して一覧から選ぶ。</summary>
+/// <summary>Dialog to choose a move-to folder, either from the tree or from search results.</summary>
 internal sealed class FolderPickerForm : Form
 {
     private readonly IReadOnlyList<FolderNode> _roots;
-    private readonly TextBox _search = new() { Dock = DockStyle.Top, PlaceholderText = "フォルダー名で検索（空白区切りで絞り込み）" };
+    private readonly TextBox _search = new() { Dock = DockStyle.Top, PlaceholderText = T("フォルダー名で検索（空白区切りで絞り込み）", "Search folders (space-separated terms narrow the results)") };
     private readonly TreeView _tree = new() { Dock = DockStyle.Fill, HideSelection = false };
     private readonly ListBox _results = new() { Dock = DockStyle.Fill, Visible = false, IntegralHeight = false };
     private readonly Button _ok = new() { Text = "OK", DialogResult = DialogResult.OK, Width = 90, Height = 30, Enabled = false };
@@ -16,14 +17,15 @@ internal sealed class FolderPickerForm : Form
     public FolderPickerForm(IReadOnlyList<FolderNode> roots, FolderRef? current)
     {
         _roots = roots;
-        Text = "移動先フォルダーの選択";
+        Text = T("移動先フォルダーの選択", "Choose the move-to folder");
+        Font = new Font(IsJapanese ? "Yu Gothic UI" : "Segoe UI", 9F);
         StartPosition = FormStartPosition.CenterParent;
         MinimizeBox = false;
         ShowInTaskbar = false;
         ClientSize = new Size(560, 620);
         Padding = new Padding(12);
 
-        var cancel = new Button { Text = "キャンセル", DialogResult = DialogResult.Cancel, Width = 100, Height = 30 };
+        var cancel = new Button { Text = T("キャンセル", "Cancel"), DialogResult = DialogResult.Cancel, Width = 100, Height = 30 };
         var buttons = new FlowLayoutPanel { Dock = DockStyle.Bottom, FlowDirection = FlowDirection.RightToLeft, Height = 44, Padding = new Padding(0, 6, 0, 0) };
         buttons.Controls.AddRange([cancel, _ok]);
         var body = new Panel { Dock = DockStyle.Fill, Padding = new Padding(0, 6, 0, 0) };
@@ -42,7 +44,7 @@ internal sealed class FolderPickerForm : Form
         _results.SelectedIndexChanged += (_, _) => SetSelection((_results.SelectedItem as ResultItem)?.Node.Folder);
         _results.DoubleClick += (_, _) => { if (_results.SelectedItem is not null) Accept(); };
         Shown += (_, _) => _search.Focus();
-        BuildTree(current); // AfterSelect を登録してから作る（今の移動先を選択状態にするため）
+        BuildTree(current); // build after subscribing to AfterSelect, so that the current folder becomes the selection
     }
 
     private void BuildTree(FolderRef? current)

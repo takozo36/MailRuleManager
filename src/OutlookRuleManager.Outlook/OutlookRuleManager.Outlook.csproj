@@ -8,8 +8,8 @@
   </PropertyGroup>
 
   <!--
-    Outlook は遅延バインディング（dynamic）で呼ぶため、相互運用アセンブリ
-    （Microsoft.Office.Interop.Outlook）は参照しない。外部パッケージへの依存なし。
+    Outlook is called with late binding (dynamic), so the interop assembly
+    (Microsoft.Office.Interop.Outlook) is not referenced. No external package dependencies.
   -->
   <ItemGroup>
     <ProjectReference Include="..\OutlookRuleManager.Core\OutlookRuleManager.Core.csproj" />

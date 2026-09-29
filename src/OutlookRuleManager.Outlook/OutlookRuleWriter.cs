@@ -4,15 +4,15 @@ using static OutlookRuleManager.Outlook.OutlookCom;
 namespace OutlookRuleManager.Outlook;
 
 /// <summary>
-/// 既存ルールの条件・例外・処理を新しいルールへ書き写す（複製用、遅延バインディング）。
-/// 扱える種類は RuleCapabilities の一覧と一致させること。
+/// Copies the conditions, exceptions and actions of an existing rule to a new rule (for duplicates, late bound).
+/// The supported types must match the lists in RuleCapabilities.
 /// </summary>
 internal static class OutlookRuleWriter
 {
     public static void Copy(dynamic source, dynamic target)
     {
-        CopyConditions((object)source.Conditions, (object)target.Conditions, "条件");
-        CopyConditions((object)source.Exceptions, (object)target.Exceptions, "例外");
+        CopyConditions((object)source.Conditions, (object)target.Conditions, Loc.T("条件", "Condition"));
+        CopyConditions((object)source.Exceptions, (object)target.Exceptions, Loc.T("例外", "Exception"));
         CopyActions((object)source.Actions, (object)target.Actions);
     }
 
@@ -57,7 +57,7 @@ internal static class OutlookRuleWriter
                 case ConditionType.AnyCategory: d.AnyCategory.Enabled = true; break;
                 case ConditionType.FromAnyRssFeed: d.FromAnyRSSFeed.Enabled = true; break;
                 default:
-                    throw new NotSupportedException($"{kind}「{RuleText.Label(type)}」は複製できません。");
+                    throw new NotSupportedException(Loc.T($"{kind}「{RuleText.Label(type)}」は複製できません。", $"{kind} \"{RuleText.Label(type)}\" cannot be duplicated."));
             }
         }
     }
@@ -101,12 +101,12 @@ internal static class OutlookRuleWriter
                 case ActionType.NotifyRead: d.NotifyRead.Enabled = true; break;
                 case ActionType.NotifyDelivery: d.NotifyDelivery.Enabled = true; break;
                 default:
-                    throw new NotSupportedException($"処理「{RuleText.Label(type)}」は複製できません。");
+                    throw new NotSupportedException(Loc.T($"処理「{RuleText.Label(type)}」は複製できません。", $"Action \"{RuleText.Label(type)}\" cannot be duplicated."));
             }
         }
     }
 
-    /// <summary>宛先をアドレスで追加し直して解決する（表示名だと別人に解決されることがあるため）。</summary>
+    /// <summary>Adds the recipients again by address and resolves them (a display name could resolve to someone else).</summary>
     private static void CopyRecipients(dynamic source, dynamic target)
     {
         foreach (dynamic r in source)

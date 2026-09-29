@@ -1,35 +1,39 @@
+using OutlookRuleManager.Core;
+
 namespace OutlookRuleManager.Outlook;
 
 /// <summary>
-/// Outlook のオブジェクトモデルを遅延バインディング（dynamic / IDispatch）で呼ぶための共通部品。
-/// 相互運用アセンブリ（Microsoft.Office.Interop.Outlook）を使わないので、外部ライブラリへの依存がない。
-/// 早期バインディングと比べた読み込み速度は実測で同等（Outlook 側のコストが支配的なため）。
+/// Shared helpers for calling the Outlook object model with late binding (dynamic / IDispatch).
+/// The Outlook interop assembly (Microsoft.Office.Interop.Outlook) is not used, so there is no external dependency.
+/// Reading speed was measured to be the same as with early binding (the cost is on Outlook's side).
 ///
-/// 注意: 引数に dynamic を渡すと静的メソッドの呼び出しまで実行時解決になるので、
-/// このプロジェクトの補助メソッドへ渡すときは (object) にキャストしてから渡す。
+/// Note: passing a dynamic argument turns even a call to a static helper into a runtime-bound call,
+/// so cast arguments to (object) when passing them to the helpers in this project.
 /// </summary>
 internal static class OutlookCom
 {
-    // Outlook の列挙値（相互運用アセンブリを使わないので自前で定義する）
+    // Outlook enumeration values (defined here because the interop assembly is not referenced)
     public const int OlMailItem = 0;          // OlItemType.olMailItem
-    public const int OlImportanceLow = 0;     // OlImportance
-    public const int OlImportanceHigh = 2;
+    public const int OlFolderInbox = 6;       // OlDefaultFolders.olFolderInbox
+    public const int OlHiddenItems = 1;       // OlTableContents.olHiddenItems
 
     /// <summary>
-    /// オブジェクトや配列を値に持つプロパティへ代入する（例: MoveToFolder.Folder、Subject.Text）。
-    /// dynamic での代入（x.Folder = folder）は「操作は失敗しました」(0x80020009) になるが、
-    /// IDispatch の PROPERTYPUT を直接呼ぶと成功する（Outlook クラシック x64 で実測）。
-    /// 文字列・真偽値・数値の代入は dynamic のままで問題ない。
+    /// Assigns a property whose value is an object or an array (e.g. MoveToFolder.Folder, Subject.Text).
+    /// Assigning through dynamic (x.Folder = folder) fails with "The operation failed" (0x80020009), while calling
+    /// IDispatch PROPERTYPUT directly succeeds (measured on Outlook Classic x64). Strings, booleans and numbers can be
+    /// assigned through dynamic without problems.
     /// </summary>
     public static void SetProperty(object target, string name, object? value) =>
         target.GetType().InvokeMember(name, System.Reflection.BindingFlags.SetProperty, null, target, [value]);
 
-    /// <summary>起動中の Outlook に接続する（起動していなければ起動する）。</summary>
+    /// <summary>Connects to the running Outlook (starts it if it is not running).</summary>
     public static dynamic CreateApplication()
     {
         var type = Type.GetTypeFromProgID("Outlook.Application")
-            ?? throw new InvalidOperationException("Outlook（クラシック）が見つかりません。新しい Outlook（New Outlook）には対応していません。");
+            ?? throw new InvalidOperationException(Loc.T(
+                "Outlook（クラシック）が見つかりません。新しい Outlook（New Outlook）には対応していません。",
+                "Outlook Classic was not found. The new Outlook is not supported."));
         return Activator.CreateInstance(type)
-            ?? throw new InvalidOperationException("Outlook を起動できませんでした。");
+            ?? throw new InvalidOperationException(Loc.T("Outlook を起動できませんでした。", "Outlook could not be started."));
     }
 }

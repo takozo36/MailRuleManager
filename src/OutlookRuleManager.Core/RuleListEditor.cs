@@ -1,8 +1,8 @@
 namespace OutlookRuleManager.Core;
 
 /// <summary>
-/// 読み込んだルール一覧に対する編集（有効/無効・名前・移動先・削除・複製・並べ替え）をメモリ上で行う。
-/// Outlook へは BuildPlan() の結果をまとめて反映する。すべての編集は Undo() で 1 手ずつ戻せる。
+/// In-memory editing of the loaded rules (enable/disable, rename, move-to folder, delete, duplicate, reorder).
+/// Changes are applied to Outlook all at once from the result of BuildPlan(). Every edit can be undone one step at a time.
 /// </summary>
 public sealed class RuleListEditor
 {
@@ -18,7 +18,7 @@ public sealed class RuleListEditor
 
     public IReadOnlyList<RuleData> Original { get; }
 
-    /// <summary>現在の並び順どおりのルール一覧（先頭が実行順 1）。</summary>
+    /// <summary>Rules in their current order (the first one runs first).</summary>
     public IReadOnlyList<RuleEntry> Entries => _entries;
 
     public bool CanUndo => _undo.Count > 0;
@@ -39,7 +39,7 @@ public sealed class RuleListEditor
         return -1;
     }
 
-    // ---- 内容の変更 ----
+    // ---- Content changes ----
 
     public int SetEnabled(IEnumerable<string> ids, bool enabled) =>
         Update(ids, e => e.Enabled == enabled ? e : e with { Enabled = enabled });
@@ -47,16 +47,16 @@ public sealed class RuleListEditor
     public bool Rename(string id, string newName)
     {
         newName = newName.Trim();
-        if (newName.Length == 0) throw new ArgumentException("ルール名が空です。", nameof(newName));
+        if (newName.Length == 0) throw new ArgumentException(Loc.T("ルール名が空です。", "The rule name is empty."), nameof(newName));
         return Update([id], e => e.Name == newName ? e : e with { Name = newName }) > 0;
     }
 
-    /// <summary>移動先フォルダーを変更する。移動の処理を持たないルールは対象外。</summary>
+    /// <summary>Changes the move-to folder. Rules without a move action are left as they are.</summary>
     public int SetMoveFolder(IEnumerable<string> ids, FolderRef folder) =>
         Update(ids, e =>
         {
             if (!e.HasMoveAction) return e;
-            // 元の移動先に戻したときは「変更なし」に戻す
+            // Setting the original folder again counts as "no change"
             var original = e.Source.Actions.First(a => a.Type == ActionType.MoveToFolder).Folder;
             var newOverride = original is not null && original.EntryId == folder.EntryId && original.StoreId == folder.StoreId && !e.IsNew
                 ? null
@@ -73,8 +73,8 @@ public sealed class RuleListEditor
     }
 
     /// <summary>
-    /// 選択したルールを複製し、それぞれ元のルールの直後に挿入する。
-    /// 複製できない（Outlook の画面でしか設定できない項目を含む）ルールは飛ばし、その一覧を skipped に返す。
+    /// Duplicates the given rules and inserts each copy right after its original.
+    /// Rules that cannot be duplicated (they contain parts only Outlook's own UI can set) are skipped and returned in skipped.
     /// </summary>
     public IReadOnlyList<string> Duplicate(IEnumerable<string> ids, out IReadOnlyList<RuleEntry> skipped)
     {
@@ -91,7 +91,7 @@ public sealed class RuleListEditor
             {
                 Id = $"N{++_newCounter}",
                 IsNew = true,
-                Name = e.Name + " のコピー",
+                Name = e.Name + Loc.T(" のコピー", " (copy)"),
             };
             next.Add(copy);
             created.Add(copy.Id);
@@ -101,11 +101,11 @@ public sealed class RuleListEditor
         return created;
     }
 
-    // ---- 並べ替え ----
+    // ---- Reordering ----
 
     /// <summary>
-    /// 選択したルールを 1 つ上へ。visibleIds を渡すと、表示中（検索で絞り込み中）のルールの間だけで動かし、
-    /// 非表示のルールの位置は変えない。
+    /// Moves the given rules up by one. With visibleIds (while the list is filtered), rules move only among the
+    /// visible ones and hidden rules keep their positions.
     /// </summary>
     public bool MoveUp(IEnumerable<string> ids, IEnumerable<string>? visibleIds = null) =>
         Commit(Reorder.MoveUp(_entries, ids.ToHashSet(), visibleIds?.ToHashSet()));
@@ -117,15 +117,15 @@ public sealed class RuleListEditor
 
     public bool MoveToBottom(IEnumerable<string> ids) => MoveTo(ids, int.MaxValue);
 
-    /// <summary>選択したルールを、先頭が position 番目（1 始まり）になるよう移動する。順序は保つ。</summary>
+    /// <summary>Moves the given rules so that the first of them lands at position (1-based), keeping their order.</summary>
     public bool MoveTo(IEnumerable<string> ids, int position) =>
         Commit(Reorder.MoveTo(_entries, ids.ToHashSet(), position));
 
-    /// <summary>選択したルールを targetId のルールの直前へ移動する（ドラッグ＆ドロップ用）。targetId が null なら末尾へ。</summary>
+    /// <summary>Moves the given rules right before targetId (for drag and drop); to the end when targetId is null.</summary>
     public bool MoveBefore(IEnumerable<string> ids, string? targetId) =>
         Commit(Reorder.MoveBefore(_entries, ids.ToHashSet(), targetId));
 
-    /// <summary>2 つのルールの位置を入れ替える。</summary>
+    /// <summary>Swaps the positions of two rules.</summary>
     public bool Swap(string id1, string id2)
     {
         int a = IndexOf(id1), b = IndexOf(id2);
@@ -135,7 +135,7 @@ public sealed class RuleListEditor
         return Commit(next);
     }
 
-    // ---- 内部 ----
+    // ---- Internals ----
 
     private int Update(IEnumerable<string> ids, Func<RuleEntry, RuleEntry> change)
     {
@@ -152,7 +152,7 @@ public sealed class RuleListEditor
         return changed;
     }
 
-    /// <summary>並びか内容が変わっていれば現在の状態を Undo 用に積んで差し替える。</summary>
+    /// <summary>If the order or content changed, pushes the current state for undo and replaces it.</summary>
     private bool Commit(IReadOnlyList<RuleEntry> next)
     {
         if (next.Count == _entries.Count && next.Zip(_entries).All(p => p.First == p.Second)) return false;

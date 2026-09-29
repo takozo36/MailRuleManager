@@ -1,12 +1,20 @@
 using System.Text;
+using static OutlookRuleManager.Core.Loc;
 
 namespace OutlookRuleManager.Core;
 
-/// <summary>ルール一覧を Excel で開ける CSV（UTF-8 BOM 付き）に書き出す。onlyIds を渡すとその行だけ書く（実行順は全体での位置）。</summary>
+/// <summary>
+/// Writes the rule list as CSV (UTF-8 with BOM, so Excel opens it correctly) in the current UI language.
+/// With onlyIds, only those rows are written (the position column still shows the position in the whole list).
+/// </summary>
 public static class RuleCsvExporter
 {
-    public static readonly string[] Header =
-        ["実行順", "有効", "名前", "種類", "条件", "例外", "処理", "移動先フォルダー", "診断"];
+    public static IReadOnlyList<string> Header =>
+    [
+        T("実行順", "Order"), T("有効", "Enabled"), T("名前", "Name"), T("種類", "Type"),
+        T("条件", "Conditions"), T("例外", "Exceptions"), T("処理", "Actions"),
+        T("移動先フォルダー", "Move to folder"), T("診断", "Diagnostics"),
+    ];
 
     public static void Write(
         TextWriter writer,
@@ -23,14 +31,14 @@ public static class RuleCsvExporter
             string[] row =
             [
                 (i + 1).ToString(),
-                e.Enabled ? "有効" : "無効",
+                RuleText.EnabledText(e.Enabled),
                 e.Name,
                 RuleText.KindText(e),
                 RuleText.Summary(e.Conditions),
                 RuleText.Summary(e.Exceptions),
                 RuleText.ActionSummary(e.Actions),
                 RuleText.MoveTarget(e.Actions),
-                string.Join(" / ", diags.Select(x => $"[{SeverityText(x.Severity)}] {x.Message}")),
+                string.Join(" / ", diags.Select(x => $"[{RuleText.SeverityText(x.Severity)}] {x.Message}")),
             ];
             writer.WriteLine(string.Join(",", row.Select(Escape)));
         }
@@ -44,13 +52,6 @@ public static class RuleCsvExporter
         using var writer = new StreamWriter(path, false, new UTF8Encoding(true));
         Write(writer, entries, diagnostics);
     }
-
-    public static string SeverityText(Severity s) => s switch
-    {
-        Severity.Error => "エラー",
-        Severity.Warning => "警告",
-        _ => "情報",
-    };
 
     internal static string Escape(string value)
     {

@@ -1,18 +1,18 @@
 namespace OutlookRuleManager.Core;
 
 /// <summary>
-/// 編集中のルール 1 件。Source は読み込み時のルール（複製で作ったものは複製元）。
-/// 名前・有効/無効・移動先フォルダーだけを上書きでき、条件などは Source のまま。
+/// A rule being edited. Source is the rule as loaded (for a duplicate, the rule it was copied from).
+/// Only the name, the enabled flag and the move-to folder can be overridden; conditions etc. stay as in Source.
 /// </summary>
 public sealed record RuleEntry
 {
     public required string Id { get; init; }
     public required RuleData Source { get; init; }
-    /// <summary>複製で新しく作るルールなら true（Outlook にはまだ存在しない）。</summary>
+    /// <summary>True for a duplicate that does not exist in Outlook yet.</summary>
     public bool IsNew { get; init; }
     public required string Name { get; init; }
     public bool Enabled { get; init; }
-    /// <summary>移動先フォルダーの変更。null なら変更なし。</summary>
+    /// <summary>New move-to folder; null means unchanged.</summary>
     public FolderRef? MoveFolderOverride { get; init; }
 
     public static RuleEntry FromSource(RuleData source) => new()
@@ -27,7 +27,7 @@ public sealed record RuleEntry
     public IReadOnlyList<RuleCondition> Conditions => Source.Conditions;
     public IReadOnlyList<RuleCondition> Exceptions => Source.Exceptions;
 
-    /// <summary>移動先フォルダーの変更を反映した処理の一覧。</summary>
+    /// <summary>Actions with the move-to folder override applied.</summary>
     public IReadOnlyList<RuleAction> Actions =>
         MoveFolderOverride is null
             ? Source.Actions
@@ -41,9 +41,9 @@ public sealed record RuleEntry
     public bool IsEnabledChanged => !IsNew && Enabled != Source.Enabled;
     public bool IsFolderChanged => MoveFolderOverride is not null;
 
-    /// <summary>新規、または名前・有効/無効・移動先のいずれかを変更したもの。並び順の変更は含まない。</summary>
+    /// <summary>New, or renamed / enabled flag changed / folder changed. Reordering is not included.</summary>
     public bool IsModified => IsNew || IsRenamed || IsEnabledChanged || IsFolderChanged;
 
-    /// <summary>このアプリで複製できるか（Outlook の画面でしか設定できない条件・処理を含まないか）。</summary>
+    /// <summary>Whether this app can duplicate the rule (no conditions or actions that only Outlook's own UI can set).</summary>
     public bool CanDuplicate => Source.ReadError is null && RuleCapabilities.CanCopy(Source);
 }

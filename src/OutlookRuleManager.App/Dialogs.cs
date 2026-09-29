@@ -1,6 +1,8 @@
+using static OutlookRuleManager.Core.Loc;
+
 namespace OutlookRuleManager.App;
 
-/// <summary>1 行の文字入力ダイアログ（名前の変更・位置の指定用）。</summary>
+/// <summary>Single-line text input dialog (for renaming and entering a position).</summary>
 internal sealed class InputDialog : Form
 {
     private readonly TextBox _text = new() { Dock = DockStyle.Top };
@@ -8,6 +10,7 @@ internal sealed class InputDialog : Form
     private InputDialog(string title, string prompt, string value)
     {
         Text = title;
+        Font = new Font(IsJapanese ? "Yu Gothic UI" : "Segoe UI", 9F);
         FormBorderStyle = FormBorderStyle.FixedDialog;
         StartPosition = FormStartPosition.CenterParent;
         MinimizeBox = MaximizeBox = false;
@@ -18,7 +21,7 @@ internal sealed class InputDialog : Form
         var label = new Label { Text = prompt, Dock = DockStyle.Top, AutoSize = false, Height = 24 };
         _text.Text = value;
         var ok = new Button { Text = "OK", DialogResult = DialogResult.OK, Width = 90 };
-        var cancel = new Button { Text = "キャンセル", DialogResult = DialogResult.Cancel, Width = 90 };
+        var cancel = new Button { Text = T("キャンセル", "Cancel"), DialogResult = DialogResult.Cancel, Width = 90 };
         var buttons = new FlowLayoutPanel { Dock = DockStyle.Bottom, FlowDirection = FlowDirection.RightToLeft, Height = 36 };
         buttons.Controls.AddRange([cancel, ok]);
 
@@ -37,12 +40,13 @@ internal sealed class InputDialog : Form
     }
 }
 
-/// <summary>複数行の説明を見せて OK / キャンセルを選ばせるダイアログ（保存前の確認用）。</summary>
+/// <summary>Shows a multi-line description and asks for OK / Cancel (used to confirm saving).</summary>
 internal sealed class ConfirmDialog : Form
 {
     private ConfirmDialog(string title, string heading, IEnumerable<string> lines, string okText)
     {
         Text = title;
+        Font = new Font(IsJapanese ? "Yu Gothic UI" : "Segoe UI", 9F);
         StartPosition = FormStartPosition.CenterParent;
         MinimizeBox = false;
         ShowInTaskbar = false;
@@ -61,7 +65,7 @@ internal sealed class ConfirmDialog : Form
             BackColor = SystemColors.Window,
         };
         var ok = new Button { Text = okText, DialogResult = DialogResult.OK, AutoSize = true, MinimumSize = new Size(120, 30) };
-        var cancel = new Button { Text = "キャンセル", DialogResult = DialogResult.Cancel, Width = 100, Height = 30 };
+        var cancel = new Button { Text = T("キャンセル", "Cancel"), DialogResult = DialogResult.Cancel, Width = 100, Height = 30 };
         var buttons = new FlowLayoutPanel { Dock = DockStyle.Bottom, FlowDirection = FlowDirection.RightToLeft, Height = 44, Padding = new Padding(0, 6, 0, 0) };
         buttons.Controls.AddRange([cancel, ok]);
 

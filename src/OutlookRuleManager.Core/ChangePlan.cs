@@ -1,7 +1,9 @@
+using static OutlookRuleManager.Core.Loc;
+
 namespace OutlookRuleManager.Core;
 
 /// <summary>
-/// 読み込み時の状態と編集後の状態の差分。Outlook へ反映するときの手順の元になる。
+/// Difference between the state at load time and the edited state; the basis of the steps applied to Outlook.
 /// </summary>
 public sealed class ChangePlan
 {
@@ -14,11 +16,11 @@ public sealed class ChangePlan
     }
 
     public IReadOnlyList<RuleData> Original { get; }
-    /// <summary>保存後の並び（先頭が実行順 1）。</summary>
+    /// <summary>Order after saving (the first one runs first).</summary>
     public IReadOnlyList<RuleEntry> FinalOrder { get; }
-    /// <summary>削除するルール（読み込み時の位置の昇順）。</summary>
+    /// <summary>Rules to delete (in ascending order of their original position).</summary>
     public IReadOnlyList<RuleData> Deleted { get; }
-    /// <summary>残るルールどうしの前後関係が変わったか、途中に新しいルールが入ったか。</summary>
+    /// <summary>The relative order of the remaining rules changed, or a new rule was inserted in the middle.</summary>
     public bool OrderChanged { get; }
 
     public IEnumerable<RuleEntry> Created => FinalOrder.Where(e => e.IsNew);
@@ -26,7 +28,7 @@ public sealed class ChangePlan
 
     public bool HasChanges => OrderChanged || Deleted.Count > 0 || FinalOrder.Any(e => e.IsModified);
 
-    /// <summary>変更件数（並び順の変更は 1 件と数える）。</summary>
+    /// <summary>Number of changes (a reorder counts as one).</summary>
     public int ChangeCount => Deleted.Count + FinalOrder.Count(e => e.IsModified) + (OrderChanged ? 1 : 0);
 
     public static ChangePlan Create(IReadOnlyList<RuleData> original, IReadOnlyList<RuleEntry> current)
@@ -34,7 +36,7 @@ public sealed class ChangePlan
         var keptIndexes = current.Where(e => !e.IsNew).Select(e => e.Source.Index).ToHashSet();
         var deleted = original.Where(r => !keptIndexes.Contains(r.Index)).OrderBy(r => r.Index).ToList();
 
-        // 残る既存ルールの並びが読み込み時と同じ順（昇順）で、新規ルールが末尾にしかなければ並びは変わっていない
+        // The order is unchanged if the remaining existing rules are still ascending and new rules are only at the end
         var existingOrder = current.Where(e => !e.IsNew).Select(e => e.Source.Index).ToList();
         bool ascending = existingOrder.Zip(existingOrder.Skip(1)).All(p => p.First < p.Second);
         int firstNew = current.ToList().FindIndex(e => e.IsNew);
@@ -45,8 +47,8 @@ public sealed class ChangePlan
     }
 
     /// <summary>
-    /// 保存に成功したあとの Outlook 側の状態を、読み込み直さずに組み立てる
-    /// （全件の読み込みには数分かかるため）。実行順・名前・有効/無効・移動先を反映する。
+    /// Builds Outlook's state after a successful save without reloading (loading everything can take a while).
+    /// Reflects the order, names, enabled flags and move-to folders.
     /// </summary>
     public IReadOnlyList<RuleData> ToSavedSnapshot() =>
         FinalOrder.Select((e, i) => e.Source with
@@ -57,40 +59,45 @@ public sealed class ChangePlan
             Actions = e.Actions,
         }).ToList();
 
-    /// <summary>保存前に止めるべき問題（Outlook に触る前に判定できるもの）。</summary>
+    /// <summary>Problems that must stop the save (those that can be detected before touching Outlook).</summary>
     public IReadOnlyList<string> Validate()
     {
         var problems = new List<string>();
         foreach (var e in Created)
         {
             if (e.Actions.Any(a => a.Type is ActionType.MoveToFolder or ActionType.CopyToFolder && a.FolderMissing))
-                problems.Add($"複製「{e.Name}」: 移動先・コピー先のフォルダーが見つかりません。先に移動先を指定してください。");
+                problems.Add(T($"複製「{e.Name}」: 移動先・コピー先のフォルダーが見つかりません。先に移動先を指定してください。",
+                    $"Duplicate \"{e.Name}\": the move-to or copy-to folder was not found. Choose a folder first."));
             if (!e.CanDuplicate)
-                problems.Add($"複製「{e.Name}」: このアプリでは複製できない条件・処理が含まれています。");
+                problems.Add(T($"複製「{e.Name}」: このアプリでは複製できない条件・処理が含まれています。",
+                    $"Duplicate \"{e.Name}\": it contains conditions or actions that this app cannot duplicate."));
         }
         foreach (var e in FinalOrder.Where(e => e.Name.Trim().Length == 0))
-            problems.Add($"実行順 {IndexOf(e) + 1}: ルール名が空です。");
+            problems.Add(T($"実行順 {IndexOf(e) + 1}: ルール名が空です。", $"Position {IndexOf(e) + 1}: the rule name is empty."));
         return problems;
     }
 
-    /// <summary>確認画面に出す変更内容の説明。</summary>
+    /// <summary>Description of the changes for the confirmation dialog.</summary>
     public IReadOnlyList<string> Describe()
     {
         var lines = new List<string>();
         foreach (var r in Deleted)
-            lines.Add($"削除: 「{r.Name}」");
+            lines.Add(T($"削除: 「{r.Name}」", $"Delete: \"{r.Name}\""));
         foreach (var e in Created)
-            lines.Add($"追加(複製): 「{e.Name}」 → 実行順 {IndexOf(e) + 1}");
+            lines.Add(T($"追加(複製): 「{e.Name}」 → 実行順 {IndexOf(e) + 1}", $"Add (duplicate): \"{e.Name}\" → position {IndexOf(e) + 1}"));
         foreach (var e in Modified)
         {
             var parts = new List<string>();
-            if (e.IsRenamed) parts.Add($"名前「{e.Source.Name}」→「{e.Name}」");
-            if (e.IsEnabledChanged) parts.Add(e.Enabled ? "有効にする" : "無効にする");
-            if (e.IsFolderChanged) parts.Add($"移動先 → {e.MoveFolderOverride!.DisplayPath}");
-            lines.Add($"変更: 「{e.Name}」 {string.Join("、", parts)}");
+            if (e.IsRenamed) parts.Add(T($"名前「{e.Source.Name}」→「{e.Name}」", $"name \"{e.Source.Name}\" → \"{e.Name}\""));
+            if (e.IsEnabledChanged) parts.Add(e.Enabled ? T("有効にする", "enable") : T("無効にする", "disable"));
+            if (e.IsFolderChanged) parts.Add(T($"移動先 → {e.MoveFolderOverride!.DisplayPath}", $"move to → {e.MoveFolderOverride!.DisplayPath}"));
+            lines.Add(T($"変更: 「{e.Name}」 {string.Join("、", parts)}", $"Change: \"{e.Name}\" {string.Join(", ", parts)}"));
         }
         if (OrderChanged)
-            lines.Add("並び順の変更: " + FinalOrder.Count(e => !e.IsNew && IndexOf(e) + 1 != e.Source.Index) + " 件のルールの実行順が変わります");
+        {
+            int moved = FinalOrder.Count(e => !e.IsNew && IndexOf(e) + 1 != e.Source.Index);
+            lines.Add(T($"並び順の変更: {moved} 件のルールの実行順が変わります", $"Reorder: {moved} rules change their position"));
+        }
         return lines;
     }
 

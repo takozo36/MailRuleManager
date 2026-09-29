@@ -1,7 +1,13 @@
 # Third-Party Notices
 
+Created: 2026-09-29
+AI agent: Claude Code
+Model: Claude Opus 5.5 / claude-opus-5-5
+
+**English** | [日本語](THIRD-PARTY-NOTICES.ja.md)
+
 This project uses the following third-party components.
-The application itself (`Outlook仕訳ルール管理.exe`) does not include any third-party library binary.
+The application itself (`OutlookRuleManager.exe`) does not include any third-party library binary.
 It calls Outlook Classic through COM late binding and does not reference or redistribute
 the Outlook primary interop assembly (`Microsoft.Office.Interop.Outlook`).
 

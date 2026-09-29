@@ -3,12 +3,12 @@ using static OutlookRuleManager.Core.Tests.TestRules;
 
 namespace OutlookRuleManager.Core.Tests;
 
-public class RuleFilterAndExportTests
+public class RuleFilterAndExportTests : JapaneseTestBase
 {
     private static readonly IReadOnlyList<Diagnostic> NoDiag = Array.Empty<Diagnostic>();
 
     [Fact]
-    public void 検索は名前_差出人_移動先を対象に空白区切りでAND()
+    public void SearchCoversNameSenderAndFolder_TermsAreAnded()
     {
         var e = RuleEntry.FromSource(FromRule(1, "顧客　サンプル商事", ["yamada@sample.example"], folder: @"取引先\サンプル東京"));
         Assert.True(RuleFilter.Matches(e, NoDiag, "サンプル", RuleFilterMode.All));
@@ -17,14 +17,14 @@ public class RuleFilterAndExportTests
     }
 
     [Fact]
-    public void 全角英数字と全角空白でも検索できる()
+    public void FullWidthLettersAndSpacesAreMatched()
     {
         var e = RuleEntry.FromSource(FromRule(1, "社内", ["ito@example.com"]));
         Assert.True(RuleFilter.Matches(e, NoDiag, "ＩＴＯ　社内", RuleFilterMode.All));
     }
 
     [Fact]
-    public void 小さいカナ_ひらがな_半角カナの違いを無視して検索できる()
+    public void SmallKanaHiraganaAndHalfWidthKanaAreMatched()
     {
         var e = RuleEntry.FromSource(FromRule(1, "お店", ["info@example.com"], folder: @"お店\キャンプ用品"));
         Assert.True(RuleFilter.Matches(e, NoDiag, "キヤンプ", RuleFilterMode.All));
@@ -33,7 +33,7 @@ public class RuleFilterAndExportTests
     }
 
     [Fact]
-    public void 表示モードで絞り込む()
+    public void FilterModes()
     {
         var e = RuleEntry.FromSource(FromRule(1, "x", ["a@example.com"], enabled: false));
         var error = new[] { new Diagnostic(Severity.Error, "e") };
@@ -45,7 +45,7 @@ public class RuleFilterAndExportTests
     }
 
     [Fact]
-    public void フォルダー検索()
+    public void FolderSearch()
     {
         var tree = new FolderNode("受信トレイ", Folder(""), [
             new FolderNode("取引先", Folder("取引先"), [new FolderNode("サンプル商事", Folder(@"取引先\サンプル商事"), [])]),
@@ -56,7 +56,7 @@ public class RuleFilterAndExportTests
     }
 
     [Fact]
-    public void CSVは項目をエスケープし_実行順は全体の位置()
+    public void CsvEscapesFields_AndShowsThePositionInTheWholeList()
     {
         var entries = new[]
         {
@@ -67,7 +67,7 @@ public class RuleFilterAndExportTests
         var sw = new StringWriter();
         RuleCsvExporter.Write(sw, entries, diags, new HashSet<string> { "R2" });
         var lines = sw.ToString().Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);
-        Assert.Equal(2, lines.Length); // 見出し + R2 のみ
+        Assert.Equal(2, lines.Length); // header + R2 only
         Assert.StartsWith("2,有効,\"引用\"\"符\"", lines[1]);
 
         sw = new StringWriter();
@@ -76,7 +76,7 @@ public class RuleFilterAndExportTests
     }
 
     [Fact]
-    public void アドレスの表示は名前とアドレスが同じなら片方だけ()
+    public void AddressDisplayShowsOnlyOneWhenNameEqualsAddress()
     {
         Assert.Equal("a@example.com", RuleValue.Address("a@example.com", "a@example.com").Display);
         Assert.Equal("山田 <A@example.com>", RuleValue.Address("山田", "A@example.com").Display);
@@ -84,7 +84,7 @@ public class RuleFilterAndExportTests
     }
 
     [Fact]
-    public void 表示用パスはストア名を除く()
+    public void DisplayPathOmitsTheStoreName()
     {
         Assert.Equal(@"受信トレイ\社内", new FolderRef(@"\\me@example.com\受信トレイ\社内", "", "").DisplayPath);
     }

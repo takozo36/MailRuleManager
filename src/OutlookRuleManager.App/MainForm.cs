@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using OutlookRuleManager.Core;
 using OutlookRuleManager.Outlook;
+using static OutlookRuleManager.Core.Loc;
 
 namespace OutlookRuleManager.App;
 
@@ -22,17 +23,27 @@ internal sealed partial class MainForm : Form
     public MainForm()
     {
         BuildLayout();
-        var version = FileVersionInfo.GetVersionInfo(Environment.ProcessPath!).FileVersion ?? "";
-        if (version.EndsWith(".0.0")) version = version[..^4];
-        Text = $"Outlook仕訳ルール管理 v{version}";
+        ApplyLanguage();
         Shown += async (_, _) => await LoadStoresAsync();
         FormClosing += OnFormClosing;
+    }
+
+    /// <summary>Application name in the current language.</summary>
+    public static string AppName => T("Outlook仕訳ルール管理", "Outlook Classic Rule Manager");
+
+    private static string Version
+    {
+        get
+        {
+            var version = FileVersionInfo.GetVersionInfo(Environment.ProcessPath!).FileVersion ?? "";
+            return version.EndsWith(".0.0") ? version[..^4] : version;
+        }
     }
 
     private IReadOnlyList<RuleEntry> Entries => _editor?.Entries ?? Array.Empty<RuleEntry>();
 
     // =====================================================================
-    // 読み込み
+    // Loading
     // =====================================================================
 
     private async Task LoadStoresAsync()
@@ -40,12 +51,13 @@ internal sealed partial class MainForm : Form
         IReadOnlyList<StoreInfo> stores;
         try
         {
-            SetBusy(true, "Outlook に接続しています…");
+            SetBusy(true, T("Outlook に接続しています…", "Connecting to Outlook…"));
             stores = await Task.Run(_gateway.ListStores);
         }
         catch (Exception ex)
         {
-            ShowError("Outlook に接続できませんでした。Outlook（クラシック）がインストールされ、起動できる状態か確認してください。", ex);
+            ShowError(T("Outlook に接続できませんでした。Outlook（クラシック）がインストールされ、起動できる状態か確認してください。",
+                "Could not connect to Outlook. Make sure Outlook Classic is installed and can be started."), ex);
             return;
         }
         finally
@@ -63,8 +75,8 @@ internal sealed partial class MainForm : Form
     }
 
     /// <summary>
-    /// 仕訳ルールを読み込む。全件で数分かかるので、読めたものから一覧に出していく
-    /// （読み込み中は閲覧・検索だけでき、編集は読み込み完了後）。
+    /// Loads the rules. When the slow rule-by-rule method is used, rules are shown as they are read
+    /// (while loading, the list can be browsed and searched; editing is possible after loading finishes).
     /// </summary>
     private async Task LoadRulesAsync()
     {
@@ -77,7 +89,8 @@ internal sealed partial class MainForm : Form
             pending = true;
             _progress.Maximum = Math.Max(1, p.Total);
             _progress.Value = Math.Min(loaded.Count, _progress.Maximum);
-            _statusMessage.Text = $"仕訳ルールを読み込んでいます… {loaded.Count} / {p.Total}（読み込んだものから表示しています）";
+            _statusMessage.Text = T($"仕訳ルールを読み込んでいます… {loaded.Count} / {p.Total}（読み込んだものから表示しています）",
+                $"Loading rules… {loaded.Count} / {p.Total} (showing rules as they are read)");
         });
         using var refreshTimer = new System.Windows.Forms.Timer { Interval = 1000 };
         refreshTimer.Tick += (_, _) =>
@@ -95,7 +108,7 @@ internal sealed partial class MainForm : Form
             _store = store;
             _editor = null;
             _loadingRules = true;
-            SetBusy(true, "仕訳ルールを読み込んでいます…");
+            SetBusy(true, T("仕訳ルールを読み込んでいます…", "Loading rules…"));
             RefreshView(keepSelection: false);
             refreshTimer.Start();
             rules = await Task.Run(() => _gateway.LoadRules(store.StoreId, progress, CancellationToken.None));
@@ -104,7 +117,7 @@ internal sealed partial class MainForm : Form
         {
             _editor = null;
             _statusMessage.Text = "";
-            ShowError("仕訳ルールを読み込めませんでした。", ex);
+            ShowError(T("仕訳ルールを読み込めませんでした。", "Could not load the rules."), ex);
             return;
         }
         finally
@@ -117,9 +130,11 @@ internal sealed partial class MainForm : Form
         _editor = new RuleListEditor(rules);
         _fileExistsCache.Clear();
         RefreshView();
-        _statusMessage.Text = $"{rules.Count} 件を読み込みました（{sw.Elapsed.TotalSeconds:0.0} 秒・{_gateway.LastLoadNote}）";
+        _statusMessage.Text = T($"{rules.Count} 件を読み込みました（{sw.Elapsed.TotalSeconds:0.0} 秒・{_gateway.LastLoadNote}）",
+            $"Loaded {rules.Count} rules ({sw.Elapsed.TotalSeconds:0.0} s, {_gateway.LastLoadNote})");
         _grid.Focus();
     }
+
     private async void OnStoreChanged(object? sender, EventArgs e)
     {
         if (_suppressStoreChange || _storeCombo.SelectedItem as StoreInfo == _store) return;
@@ -140,10 +155,25 @@ internal sealed partial class MainForm : Form
     }
 
     // =====================================================================
-    // 表示
+    // Language
     // =====================================================================
 
-    /// <summary>診断・絞り込みをやり直して一覧を描き直す。</summary>
+    /// <summary>Switches the UI language (null = follow Windows) and saves the choice.</summary>
+    private void OnLanguageSelected(UiLanguage? language)
+    {
+        AppSettings.Language = language;
+        AppSettings.Save();
+        Loc.Current = AppSettings.ResolveLanguage();
+        _statusMessage.Text = ""; // the last message is in the previous language
+        ApplyLanguage();
+        RefreshView();
+    }
+
+    // =====================================================================
+    // Display
+    // =====================================================================
+
+    /// <summary>Re-runs the diagnostics and the filter, then redraws the list.</summary>
     private void RefreshView(bool keepSelection = true, IEnumerable<string>? select = null)
     {
         var selectIds = (select ?? (keepSelection ? SelectedIds() : [])).ToHashSet();
@@ -173,7 +203,7 @@ internal sealed partial class MainForm : Form
         if (select is not null || current < 0) current = firstSelected;
         if (current >= 0)
         {
-            // CurrentCell を設定すると選択が 1 行に戻るので、設定後に選択を復元する
+            // Setting CurrentCell reduces the selection to one row, so restore the selection afterwards
             _grid.CurrentCell = _grid.Rows[current].Cells[ColName];
             foreach (var i in Enumerable.Range(0, _visible.Count).Where(i => selectIds.Contains(_visible[i].Id)))
                 _grid.Rows[i].Selected = true;
@@ -198,14 +228,16 @@ internal sealed partial class MainForm : Form
         var entries = Entries;
         int errors = entries.Count(e => RuleDiagnostics.Worst(_diagnostics[e.Id]) == Severity.Error);
         int warnings = entries.Count(e => RuleDiagnostics.Worst(_diagnostics[e.Id]) == Severity.Warning);
-        _statusCount.Text = _visible.Count == entries.Count ? $"全 {entries.Count} 件" : $"表示 {_visible.Count} / 全 {entries.Count} 件";
-        _statusDiag.Text = $"エラー {errors} 件・警告 {warnings} 件";
+        _statusCount.Text = _visible.Count == entries.Count
+            ? T($"全 {entries.Count} 件", $"{entries.Count} rules")
+            : T($"表示 {_visible.Count} / 全 {entries.Count} 件", $"Showing {_visible.Count} of {entries.Count}");
+        _statusDiag.Text = T($"エラー {errors} 件・警告 {warnings} 件", $"{errors} errors, {warnings} warnings");
         _statusDiag.ForeColor = errors > 0 ? Palette.ErrorText : warnings > 0 ? Palette.WarningText : SystemColors.ControlText;
 
         int changes = _editor?.BuildPlan().ChangeCount ?? 0;
-        _statusChanges.Text = changes > 0 ? $"未保存の変更 {changes} 件" : "未保存の変更なし";
+        _statusChanges.Text = changes > 0 ? T($"未保存の変更 {changes} 件", $"{changes} unsaved changes") : T("未保存の変更なし", "No unsaved changes");
         _statusChanges.ForeColor = changes > 0 ? Palette.ChangedText : SystemColors.ControlText;
-        _saveButton.Text = changes > 0 ? $"Outlook へ保存 ({changes})" : "Outlook へ保存";
+        _saveButton.Text = T("Outlook へ保存", "Save to Outlook") + (changes > 0 ? $" ({changes})" : "");
     }
 
     private void UpdateCommands()
@@ -227,6 +259,7 @@ internal sealed partial class MainForm : Form
         _exportButton.Enabled = loaded;
         _reloadButton.Enabled = !_busy;
         _storeCombo.Enabled = !_busy;
+        _languageButton.Enabled = !_busy;
     }
 
     private void UpdateDetail()
@@ -234,9 +267,9 @@ internal sealed partial class MainForm : Form
         _detail.Clear();
         WriteDetail();
         _detail.Select(0, 0);
-        // AppendText で末尾までスクロールしているので先頭に戻す。
-        // その場で送ると描画前のレイアウトで上書きされることがあるため、メッセージキューに積んで後で送る
-        BeginInvoke(() => SendMessage(_detail.Handle, WM_VSCROLL, SB_TOP, IntPtr.Zero));
+        // AppendText scrolled to the end, so scroll back to the top. Sending it right away can be overridden by the
+        // layout that happens before painting, so post it to the message queue instead.
+        if (IsHandleCreated) BeginInvoke(() => SendMessage(_detail.Handle, WM_VSCROLL, SB_TOP, IntPtr.Zero));
     }
 
     private void WriteDetail()
@@ -244,12 +277,13 @@ internal sealed partial class MainForm : Form
         var sel = SelectedEntries();
         if (sel.Count == 0)
         {
-            AppendDetail("ルールを選択すると、ここに条件・処理・問題点の詳細を表示します。", Palette.MutedText);
+            AppendDetail(T("ルールを選択すると、ここに条件・処理・問題点の詳細を表示します。",
+                "Select a rule to see its conditions, actions and problems here."), Palette.MutedText);
             return;
         }
         if (sel.Count > 1)
         {
-            AppendDetail($"{sel.Count} 件を選択中", null, bold: true);
+            AppendDetail(T($"{sel.Count} 件を選択中", $"{sel.Count} rules selected"), null, bold: true);
             AppendDetail("");
             foreach (var e in sel.Take(200))
             {
@@ -261,21 +295,22 @@ internal sealed partial class MainForm : Form
 
         var r = sel[0];
         AppendDetail($"[{_positions[r.Id]}] {r.Name}", null, bold: true);
-        AppendDetail($"{(r.Enabled ? "有効" : "無効")}・{RuleText.KindText(r)}{(r.IsNew ? "・複製（未保存）" : "")}", Palette.MutedText);
-        if (r.IsRenamed) AppendDetail($"元の名前: {r.Source.Name}", Palette.MutedText);
+        AppendDetail(RuleText.EnabledText(r.Enabled) + T("・", " · ") + RuleText.KindText(r)
+            + (r.IsNew ? T("・複製（未保存）", " · duplicate (unsaved)") : ""), Palette.MutedText);
+        if (r.IsRenamed) AppendDetail(T($"元の名前: {r.Source.Name}", $"Original name: {r.Source.Name}"), Palette.MutedText);
 
         var diags = _diagnostics[r.Id];
         if (diags.Count > 0)
         {
             AppendDetail("");
-            AppendDetail("■ 問題点", null, bold: true);
+            AppendDetail(T("■ 問題点", "■ Problems"), null, bold: true);
             foreach (var d in diags)
-                AppendDetail($"  [{RuleCsvExporter.SeverityText(d.Severity)}] {d.Message}",
+                AppendDetail($"  [{RuleText.SeverityText(d.Severity)}] {d.Message}",
                     d.Severity == Severity.Error ? Palette.ErrorText : d.Severity == Severity.Warning ? Palette.WarningText : Palette.MutedText);
         }
-        AppendSection("■ 条件", r.Conditions.Select(RuleText.Describe));
-        AppendSection("■ 例外", r.Exceptions.Select(RuleText.Describe));
-        AppendSection("■ 処理", r.Actions.Select(RuleText.Describe));
+        AppendSection(T("■ 条件", "■ Conditions"), r.Conditions.Select(RuleText.Describe));
+        AppendSection(T("■ 例外", "■ Exceptions"), r.Exceptions.Select(RuleText.Describe));
+        AppendSection(T("■ 処理", "■ Actions"), r.Actions.Select(RuleText.Describe));
     }
 
     private const int WM_VSCROLL = 0x0115;
@@ -290,7 +325,7 @@ internal sealed partial class MainForm : Form
         if (list.Count == 0) return;
         AppendDetail("");
         AppendDetail(title, null, bold: true);
-        foreach (var l in list) AppendDetail("  ・" + l);
+        foreach (var l in list) AppendDetail("  • " + l);
     }
 
     private void AppendDetail(string text, Color? color = null, bool bold = false)
@@ -302,7 +337,7 @@ internal sealed partial class MainForm : Form
     }
 
     // =====================================================================
-    // 一覧（仮想モード）
+    // Rule list (virtual mode)
     // =====================================================================
 
     private void OnCellValueNeeded(object? sender, DataGridViewCellValueEventArgs e)
@@ -313,14 +348,8 @@ internal sealed partial class MainForm : Form
         {
             ColOrder => _positions[r.Id],
             ColEnabled => r.Enabled,
-            ColState => RuleDiagnostics.Worst(_diagnostics[r.Id]) switch
-            {
-                Severity.Error => "エラー",
-                Severity.Warning => "警告",
-                Severity.Info => "情報",
-                _ => "",
-            },
-            ColChanged => r.IsNew ? "複製" : r.IsModified ? "変更" : "",
+            ColState => RuleDiagnostics.Worst(_diagnostics[r.Id]) is { } worst ? RuleText.SeverityText(worst) : "",
+            ColChanged => r.IsNew ? T("複製", "New") : r.IsModified ? T("変更", "Edited") : "",
             ColName => r.Name,
             ColConditions => RuleText.Summary(r.Conditions),
             ColFolder => RuleText.MoveTarget(r.Actions),
@@ -369,7 +398,7 @@ internal sealed partial class MainForm : Form
         if (_editor is null || _busy || e.RowIndex < 0 || e.RowIndex >= _visible.Count) return;
         if (_grid.Columns[e.ColumnIndex].Name != ColEnabled) return;
         var r = _visible[e.RowIndex];
-        // 選択中の行のチェックを押したら選択中すべて、それ以外ならその行だけを切り替える
+        // Clicking the check box of a selected row toggles all selected rows; otherwise only that row
         var ids = _grid.Rows[e.RowIndex].Selected ? SelectedIds() : [r.Id];
         _editor.SetEnabled(ids, !r.Enabled);
         RefreshView();
@@ -381,14 +410,14 @@ internal sealed partial class MainForm : Form
         var r = _visible[e.RowIndex];
         string col = _grid.Columns[e.ColumnIndex].Name;
         if (col == ColState)
-            e.ToolTipText = string.Join(Environment.NewLine, _diagnostics[r.Id].Select(d => $"[{RuleCsvExporter.SeverityText(d.Severity)}] {d.Message}"));
+            e.ToolTipText = string.Join(Environment.NewLine, _diagnostics[r.Id].Select(d => $"[{RuleText.SeverityText(d.Severity)}] {d.Message}"));
         else if (col is ColConditions or ColActions or ColExceptions or ColFolder or ColName)
             e.ToolTipText = _grid.Rows[e.RowIndex].Cells[e.ColumnIndex].FormattedValue?.ToString() ?? "";
     }
 
     private List<string> SelectedIds() => SelectedEntries().Select(e => e.Id).ToList();
 
-    /// <summary>選択中のルール（実行順の昇順）。</summary>
+    /// <summary>Selected rules, in execution order.</summary>
     private List<RuleEntry> SelectedEntries()
     {
         var rows = new List<int>();
@@ -398,7 +427,7 @@ internal sealed partial class MainForm : Form
     }
 
     // =====================================================================
-    // 編集操作
+    // Editing
     // =====================================================================
 
     private void Edit(Func<RuleListEditor, bool> action, IEnumerable<string>? select = null)
@@ -415,9 +444,13 @@ internal sealed partial class MainForm : Form
     {
         var sel = SelectedEntries();
         if (_editor is null || sel.Count != 1) return;
-        var name = InputDialog.Show(this, "名前の変更", "新しいルール名:", sel[0].Name);
+        var name = InputDialog.Show(this, T("名前の変更", "Rename"), T("新しいルール名:", "New rule name:"), sel[0].Name);
         if (name is null) return;
-        if (name.Trim().Length == 0) { MessageBox.Show(this, "ルール名を入力してください。", Text, MessageBoxButtons.OK, MessageBoxIcon.Warning); return; }
+        if (name.Trim().Length == 0)
+        {
+            MessageBox.Show(this, T("ルール名を入力してください。", "Enter a rule name."), Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
         Edit(ed => ed.Rename(sel[0].Id, name));
     }
 
@@ -425,10 +458,14 @@ internal sealed partial class MainForm : Form
     {
         var sel = SelectedEntries();
         if (_editor is null || sel.Count == 0) return;
-        string names = string.Join(Environment.NewLine, sel.Take(15).Select(x => "・" + x.Name)) + (sel.Count > 15 ? $"{Environment.NewLine}…ほか {sel.Count - 15} 件" : "");
-        if (MessageBox.Show(this, $"{sel.Count} 件のルールを削除します。{Environment.NewLine}{Environment.NewLine}{names}{Environment.NewLine}{Environment.NewLine}（「Outlook へ保存」を押すまでは Outlook には反映されません）",
-                "削除の確認", MessageBoxButtons.OKCancel, MessageBoxIcon.Question) != DialogResult.OK) return;
-        // 削除後は、削除した範囲の直後にあったルールを選択しておく
+        string nl = Environment.NewLine;
+        string names = string.Join(nl, sel.Take(15).Select(x => "• " + x.Name))
+            + (sel.Count > 15 ? nl + T($"…ほか {sel.Count - 15} 件", $"…and {sel.Count - 15} more") : "");
+        string message = T(
+            $"{sel.Count} 件のルールを削除します。{nl}{nl}{names}{nl}{nl}（「Outlook へ保存」を押すまでは Outlook には反映されません）",
+            $"Delete {sel.Count} rules?{nl}{nl}{names}{nl}{nl}(Outlook is not changed until you click \"Save to Outlook\".)");
+        if (MessageBox.Show(this, message, T("削除の確認", "Confirm delete"), MessageBoxButtons.OKCancel, MessageBoxIcon.Question) != DialogResult.OK) return;
+        // After deleting, select the rule that followed the deleted range
         int lastRow = _visible.FindLastIndex(v => v.Id == sel[^1].Id);
         var next = _visible.Skip(lastRow + 1).FirstOrDefault(v => !sel.Contains(v)) ?? _visible.Take(lastRow).LastOrDefault(v => !sel.Contains(v));
         Edit(ed => ed.Delete(sel.Select(x => x.Id)) > 0, next is null ? [] : [next.Id]);
@@ -440,10 +477,16 @@ internal sealed partial class MainForm : Form
         var created = _editor.Duplicate(SelectedIds(), out var skipped);
         if (created.Count > 0) RefreshView(select: created);
         if (skipped.Count > 0)
+        {
+            string nl = Environment.NewLine;
+            string list = string.Join(nl, skipped.Select(s =>
+                $"• {s.Name} ({string.Join(T("、", ", "), RuleCapabilities.UncopyableParts(s.Source).Distinct())})"));
             MessageBox.Show(this,
-                "次のルールは Outlook の画面でしか設定できない条件・処理を含むため、複製できません。" + Environment.NewLine + Environment.NewLine +
-                string.Join(Environment.NewLine, skipped.Select(s => $"・{s.Name}（{string.Join("、", RuleCapabilities.UncopyableParts(s.Source).Distinct())}）")),
+                T("次のルールは Outlook の画面でしか設定できない条件・処理を含むため、複製できません。",
+                  "The following rules cannot be duplicated because they contain conditions or actions that only Outlook can set.")
+                + nl + nl + list,
                 Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
     }
 
     private async void OnChangeFolder(object? sender, EventArgs e)
@@ -455,14 +498,14 @@ internal sealed partial class MainForm : Form
         {
             try
             {
-                SetBusy(true, "フォルダー一覧を読み込んでいます…");
+                SetBusy(true, T("フォルダー一覧を読み込んでいます…", "Loading folders…"));
                 var storeId = _store.StoreId;
                 roots = await Task.Run(() => _gateway.LoadFolders(storeId));
                 _folderCache[_store.StoreId] = roots;
             }
             catch (Exception ex)
             {
-                ShowError("フォルダー一覧を読み込めませんでした。", ex);
+                ShowError(T("フォルダー一覧を読み込めませんでした。", "Could not load the folders."), ex);
                 return;
             }
             finally
@@ -490,13 +533,13 @@ internal sealed partial class MainForm : Form
     {
         var sel = SelectedEntries();
         if (_editor is null || sel.Count == 0) return;
-        var input = InputDialog.Show(this, "位置を指定して移動",
-            $"移動先の実行順（1～{Entries.Count}）を入力してください。{(sel.Count > 1 ? $"選択した {sel.Count} 件はこの位置から順に並びます。" : "")}",
-            _positions[sel[0].Id].ToString());
+        string prompt = T($"移動先の実行順（1～{Entries.Count}）を入力してください。", $"Enter the new position (1–{Entries.Count}).")
+            + (sel.Count > 1 ? T($"選択した {sel.Count} 件はこの位置から順に並びます。", $" The {sel.Count} selected rules are placed in order from there.") : "");
+        var input = InputDialog.Show(this, T("位置を指定して移動", "Move to position"), prompt, _positions[sel[0].Id].ToString());
         if (input is null) return;
         if (!int.TryParse(RuleFilter.Normalize(input).Trim(), out int pos) || pos < 1)
         {
-            MessageBox.Show(this, "1 以上の数字を入力してください。", Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MessageBox.Show(this, T("1 以上の数字を入力してください。", "Enter a number of 1 or more."), Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
         Edit(ed => ed.MoveTo(sel.Select(x => x.Id), pos));
@@ -513,14 +556,16 @@ internal sealed partial class MainForm : Form
     private void OnDiscard(object? sender, EventArgs e)
     {
         if (_editor is null) return;
-        if (MessageBox.Show(this, "未保存の変更をすべて破棄して、読み込んだ時点の状態に戻します。よろしいですか？", "変更の破棄",
-                MessageBoxButtons.OKCancel, MessageBoxIcon.Question) != DialogResult.OK) return;
+        if (MessageBox.Show(this,
+                T("未保存の変更をすべて破棄して、読み込んだ時点の状態に戻します。よろしいですか？",
+                  "Discard all unsaved changes and go back to the state when the rules were loaded?"),
+                T("変更の破棄", "Discard changes"), MessageBoxButtons.OKCancel, MessageBoxIcon.Question) != DialogResult.OK) return;
         _editor = new RuleListEditor(_editor.Original);
         RefreshView();
     }
 
     // =====================================================================
-    // 保存・出力
+    // Save and export
     // =====================================================================
 
     private async void OnSave(object? sender, EventArgs e)
@@ -528,12 +573,13 @@ internal sealed partial class MainForm : Form
         if (_editor is null || _store is null || _busy) return;
         var plan = _editor.BuildPlan();
         if (!plan.HasChanges) return;
+        string nl = Environment.NewLine;
 
         var problems = plan.Validate();
         if (problems.Count > 0)
         {
-            MessageBox.Show(this, "次の問題があるため保存できません。" + Environment.NewLine + Environment.NewLine + string.Join(Environment.NewLine, problems),
-                Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MessageBox.Show(this, T("次の問題があるため保存できません。", "The changes cannot be saved because of the following problems.")
+                + nl + nl + string.Join(nl, problems), Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
 
@@ -541,16 +587,22 @@ internal sealed partial class MainForm : Form
         var lines = plan.Describe().ToList();
         int errorRules = plan.FinalOrder.Count(x => RuleDiagnostics.Worst(_diagnostics[x.Id]) == Severity.Error);
         lines.Add("");
-        lines.Add($"保存前の状態を CSV に残します: {backupPath}");
-        lines.Add("（CSV は確認用の記録です。元に戻せる完全なバックアップが必要なら、Outlook の");
-        lines.Add("  「ルールと通知」→「オプション」→「ルールのエクスポート」を先に実行してください）");
+        lines.Add(T($"保存前の状態を CSV に残します: {backupPath}", $"The state before saving is recorded as CSV: {backupPath}"));
+        lines.Add(T("（CSV は確認用の記録です。元に戻せる完全なバックアップが必要なら、Outlook の",
+                    "(The CSV is a record for reference only. For a full backup you can restore, first run"));
+        lines.Add(T("  「ルールと通知」→「オプション」→「ルールのエクスポート」を先に実行してください）",
+                    "  \"Rules and Alerts\" → \"Options\" → \"Export Rules\" in Outlook.)"));
         if (errorRules > 0)
         {
             lines.Add("");
-            lines.Add($"※ エラーのあるルールが {errorRules} 件残っています。Outlook が保存を拒否する場合は、");
-            lines.Add("   先にそのルールの移動先を直すか、削除してから保存してください。");
+            lines.Add(T($"※ エラーのあるルールが {errorRules} 件残っています。Outlook が保存を拒否する場合は、",
+                        $"Note: {errorRules} rules with errors remain. If Outlook refuses to save,"));
+            lines.Add(T("   先にそのルールの移動先を直すか、削除してから保存してください。",
+                        "   fix their move-to folder or delete them first, then save again."));
         }
-        if (!ConfirmDialog.Show(this, "Outlook へ保存", $"次の {plan.ChangeCount} 件の変更を Outlook に保存します。{Environment.NewLine}保存中は Outlook の「ルールと通知」画面を開かないでください。", lines, "保存する"))
+        string heading = T($"次の {plan.ChangeCount} 件の変更を Outlook に保存します。{nl}保存中は Outlook の「ルールと通知」画面を開かないでください。",
+            $"The following {plan.ChangeCount} changes will be saved to Outlook.{nl}Do not open Outlook's \"Rules and Alerts\" dialog while saving.");
+        if (!ConfirmDialog.Show(this, T("Outlook へ保存", "Save to Outlook"), heading, lines, T("保存する", "Save")))
             return;
 
         try
@@ -561,32 +613,36 @@ internal sealed partial class MainForm : Form
         }
         catch (Exception ex)
         {
-            if (MessageBox.Show(this, $"保存前の CSV を書き出せませんでした（{ex.Message}）。CSV なしで保存を続けますか？", Text,
-                    MessageBoxButtons.OKCancel, MessageBoxIcon.Warning) != DialogResult.OK) return;
+            if (MessageBox.Show(this,
+                    T($"保存前の CSV を書き出せませんでした（{ex.Message}）。CSV なしで保存を続けますか？",
+                      $"Could not write the CSV of the state before saving ({ex.Message}). Continue saving without it?"),
+                    Text, MessageBoxButtons.OKCancel, MessageBoxIcon.Warning) != DialogResult.OK) return;
         }
 
         var progress = new Progress<string>(m => _statusMessage.Text = m);
         var storeId = _store.StoreId;
         try
         {
-            SetBusy(true, "Outlook に保存しています…");
+            SetBusy(true, T("Outlook に保存しています…", "Saving to Outlook…"));
             _progress.Style = ProgressBarStyle.Marquee;
             await Task.Run(() => _gateway.Apply(storeId, plan, progress));
         }
         catch (RulesChangedException ex)
         {
-            SetBusy(false, "保存を中止しました");
-            if (MessageBox.Show(this, ex.Message + Environment.NewLine + Environment.NewLine +
-                    "Outlook 側でルールが変更されたため、保存を中止しました（Outlook には何も保存していません）。" + Environment.NewLine +
-                    "最新の状態を読み込み直しますか？（このアプリでの未保存の変更は失われます）",
+            SetBusy(false, T("保存を中止しました", "Saving was cancelled"));
+            if (MessageBox.Show(this, ex.Message + nl + nl
+                    + T("Outlook 側でルールが変更されたため、保存を中止しました（Outlook には何も保存していません）。",
+                        "Saving was cancelled because the rules were changed in Outlook (nothing was saved to Outlook).") + nl
+                    + T("最新の状態を読み込み直しますか？（このアプリでの未保存の変更は失われます）",
+                        "Reload the current rules? (Unsaved changes in this app will be lost.)"),
                     Text, MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes)
                 await LoadRulesAsync();
             return;
         }
         catch (Exception ex)
         {
-            SetBusy(false, "保存に失敗しました");
-            ShowError("Outlook への保存に失敗しました。", ex);
+            SetBusy(false, T("保存に失敗しました", "Saving failed"));
+            ShowError(T("Outlook への保存に失敗しました。", "Saving to Outlook failed."), ex);
             return;
         }
         finally
@@ -595,19 +651,22 @@ internal sealed partial class MainForm : Form
             SetBusy(false, null);
         }
 
-        // 全件の読み込み直しは数分かかるので、保存した内容から一覧を組み立て直す
+        // Rebuild the list from what was saved instead of reloading everything
         _editor = new RuleListEditor(plan.ToSavedSnapshot());
         RefreshView();
-        _statusMessage.Text = $"{plan.ChangeCount} 件の変更を Outlook に保存しました（{DateTime.Now:HH:mm}）";
-        MessageBox.Show(this, $"{plan.ChangeCount} 件の変更を Outlook に保存しました。" + Environment.NewLine + Environment.NewLine +
-            "Outlook 側の最新の状態を確かめたいときは「読み込み直す」を押してください。", Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
+        _statusMessage.Text = T($"{plan.ChangeCount} 件の変更を Outlook に保存しました（{DateTime.Now:HH:mm}）",
+            $"Saved {plan.ChangeCount} changes to Outlook ({DateTime.Now:HH:mm})");
+        MessageBox.Show(this,
+            T($"{plan.ChangeCount} 件の変更を Outlook に保存しました。", $"Saved {plan.ChangeCount} changes to Outlook.") + nl + nl
+            + T("Outlook 側の最新の状態を確かめたいときは「読み込み直す」を押してください。",
+                "To check the current state in Outlook, click \"Reload\"."),
+            Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
     }
 
     private static string BackupPath(StoreInfo store)
     {
         string safe = string.Concat(store.DisplayName.Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '_' : c));
-        return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Outlook仕訳ルール管理", "保存前の記録", $"{safe}_{DateTime.Now:yyyyMMdd_HHmmss}.csv");
+        return Path.Combine(AppSettings.DataDirectory, "Backups", $"{safe}_{DateTime.Now:yyyyMMdd_HHmmss}.csv");
     }
 
     private void OnExport(object? sender, EventArgs e)
@@ -616,39 +675,41 @@ internal sealed partial class MainForm : Form
         bool filtered = _visible.Count != Entries.Count;
         if (filtered)
         {
-            var answer = MessageBox.Show(this, $"表示中の {_visible.Count} 件だけを書き出しますか？{Environment.NewLine}「いいえ」なら全 {Entries.Count} 件を書き出します。",
-                "CSV 出力", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
+            var answer = MessageBox.Show(this,
+                T($"表示中の {_visible.Count} 件だけを書き出しますか？{Environment.NewLine}「いいえ」なら全 {Entries.Count} 件を書き出します。",
+                  $"Export only the {_visible.Count} rules shown?{Environment.NewLine}Choose \"No\" to export all {Entries.Count} rules."),
+                T("CSV 出力", "Export CSV"), MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
             if (answer == DialogResult.Cancel) return;
             filtered = answer == DialogResult.Yes;
         }
         using var dlg = new SaveFileDialog
         {
-            Filter = "CSV ファイル (*.csv)|*.csv",
-            FileName = $"仕訳ルール_{DateTime.Now:yyyyMMdd_HHmm}.csv",
+            Filter = T("CSV ファイル (*.csv)|*.csv", "CSV files (*.csv)|*.csv"),
+            FileName = T("仕訳ルール", "OutlookRules") + $"_{DateTime.Now:yyyyMMdd_HHmm}.csv",
         };
         if (dlg.ShowDialog(this) != DialogResult.OK) return;
         try
         {
-            // 実行順は全体での位置を出したいので、全件で書いてから絞り込む
+            // Write positions within the whole list, then filter the rows
             var rows = filtered ? _visible : Entries.ToList();
             using var writer = new StreamWriter(dlg.FileName, false, new System.Text.UTF8Encoding(true));
             RuleCsvExporter.Write(writer, Entries, _diagnostics, rows.Select(r => r.Id).ToHashSet());
-            _statusMessage.Text = $"CSV を書き出しました: {dlg.FileName}";
+            _statusMessage.Text = T($"CSV を書き出しました: {dlg.FileName}", $"Exported CSV: {dlg.FileName}");
         }
         catch (Exception ex)
         {
-            ShowError("CSV を書き出せませんでした。", ex);
+            ShowError(T("CSV を書き出せませんでした。", "Could not export the CSV."), ex);
         }
     }
 
     // =====================================================================
-    // 共通
+    // Common
     // =====================================================================
 
     private bool ConfirmDiscard()
     {
         if (_editor is null || !_editor.BuildPlan().HasChanges) return true;
-        return MessageBox.Show(this, "未保存の変更があります。破棄してよろしいですか？", Text,
+        return MessageBox.Show(this, T("未保存の変更があります。破棄してよろしいですか？", "There are unsaved changes. Discard them?"), Text,
             MessageBoxButtons.OKCancel, MessageBoxIcon.Warning) == DialogResult.OK;
     }
 
@@ -656,7 +717,8 @@ internal sealed partial class MainForm : Form
     {
         if (_busy)
         {
-            MessageBox.Show(this, "処理中です。終わるまでお待ちください。", Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show(this, T("処理中です。終わるまでお待ちください。", "Please wait until the current operation finishes."), Text,
+                MessageBoxButtons.OK, MessageBoxIcon.Information);
             e.Cancel = true;
             return;
         }
@@ -670,7 +732,7 @@ internal sealed partial class MainForm : Form
         _progress.Visible = busy;
         if (!busy) _progress.Value = 0;
         if (message is not null) _statusMessage.Text = message;
-        // ルールの読み込み中は、読めた分の閲覧・検索はできるようにしておく
+        // While rules are loading, the rules read so far can still be browsed and searched
         UseWaitCursor = busy && !_loadingRules;
         _grid.Enabled = !busy || _loadingRules;
         UpdateCommands();
@@ -683,7 +745,7 @@ internal sealed partial class MainForm : Form
 
     protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
     {
-        // 処理中（読み込み中を含む）は検索以外のショートカットを受け付けない
+        // While busy (including loading), only the search shortcuts are accepted
         if (_busy && keyData is not (Keys.Control | Keys.F) and not Keys.Escape)
             return base.ProcessCmdKey(ref msg, keyData);
         bool gridFocused = _grid.Focused;

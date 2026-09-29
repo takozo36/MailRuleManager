@@ -1,9 +1,9 @@
 namespace OutlookRuleManager.Core;
 
 /// <summary>
-/// Outlook のオブジェクトモデルで新しいルールへ書き込める条件・処理の一覧。
-/// 複製はここに載っている種類だけで構成されたルールに限る
-/// （Outlook 連携側の OutlookRuleWriter はこの一覧どおりにコピー処理を実装している）。
+/// Conditions and actions that can be written to a new rule through the Outlook object model.
+/// Only rules made up entirely of these types can be duplicated
+/// (OutlookRuleWriter in the Outlook project implements copying for exactly this list).
 /// </summary>
 public static class RuleCapabilities
 {
@@ -58,9 +58,9 @@ public static class RuleCapabilities
         && rule.Exceptions.All(c => CopyableConditions.Contains(c.Type))
         && rule.Actions.All(a => CopyableActions.Contains(a.Type));
 
-    /// <summary>複製できない条件・処理の名前（画面表示用）。</summary>
+    /// <summary>Names of the parts that cannot be duplicated (for display).</summary>
     public static IEnumerable<string> UncopyableParts(RuleData rule) =>
-        rule.Conditions.Where(c => !CopyableConditions.Contains(c.Type)).Select(c => "条件: " + RuleText.Label(c.Type))
-            .Concat(rule.Exceptions.Where(c => !CopyableConditions.Contains(c.Type)).Select(c => "例外: " + RuleText.Label(c.Type)))
-            .Concat(rule.Actions.Where(a => !CopyableActions.Contains(a.Type)).Select(a => "処理: " + RuleText.Label(a.Type)));
+        rule.Conditions.Where(c => !CopyableConditions.Contains(c.Type)).Select(c => Loc.T("条件: ", "Condition: ") + RuleText.Label(c.Type))
+            .Concat(rule.Exceptions.Where(c => !CopyableConditions.Contains(c.Type)).Select(c => Loc.T("例外: ", "Exception: ") + RuleText.Label(c.Type)))
+            .Concat(rule.Actions.Where(a => !CopyableActions.Contains(a.Type)).Select(a => Loc.T("処理: ", "Action: ") + RuleText.Label(a.Type)));
 }

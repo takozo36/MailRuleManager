@@ -6,32 +6,45 @@ namespace OutlookRuleManager.Core.Tests;
 public class RuleSignatureTests
 {
     [Fact]
-    public void 表示名や並び順が違っても中身が同じなら一致()
+    public void SameContentMatches_EvenWithDifferentDisplayNamesAndOrder()
     {
-        var a = FromRule(1, "元", ["a@example.com", "b@example.com"]);
+        var a = FromRule(1, "original", ["a@example.com", "b@example.com"]);
         var b = a with
         {
-            Name = "複製",
-            Conditions = [new RuleCondition(ConditionType.From, [RuleValue.Address("Bさん", "B@example.com"), RuleValue.Address(null, "a@example.com")])],
+            Name = "duplicate",
+            Conditions = [new RuleCondition(ConditionType.From, [RuleValue.Address("B", "B@example.com"), RuleValue.Address(null, "a@example.com")])],
             Actions = a.Actions.Reverse().ToList(),
         };
         Assert.Equal(RuleSignature.Of(a), RuleSignature.Of(b));
     }
 
     [Fact]
-    public void 差出人や移動先が違えば不一致()
+    public void DifferentSenderOrFolderDoesNotMatch()
     {
-        var a = FromRule(1, "元", ["a@example.com"], folder: "A");
+        var a = FromRule(1, "original", ["a@example.com"], folder: "A");
         Assert.NotEqual(RuleSignature.Of(a), RuleSignature.Of(FromRule(2, "x", ["c@example.com"], folder: "A")));
         Assert.NotEqual(RuleSignature.Of(a), RuleSignature.Of(FromRule(3, "y", ["a@example.com"], folder: "B")));
     }
 
     [Fact]
-    public void 処理を中止の有無や例外の違いも区別する()
+    public void StopProcessingAndExceptionsAreCompared()
     {
-        var a = FromRule(1, "元", ["a@example.com"]);
-        Assert.NotEqual(RuleSignature.Of(a), RuleSignature.Of(FromRule(1, "元", ["a@example.com"], stop: false)));
-        var withException = a with { Exceptions = [new RuleCondition(ConditionType.Subject, [RuleValue.Text("至急")])] };
+        var a = FromRule(1, "original", ["a@example.com"]);
+        Assert.NotEqual(RuleSignature.Of(a), RuleSignature.Of(FromRule(1, "original", ["a@example.com"], stop: false)));
+        var withException = a with { Exceptions = [new RuleCondition(ConditionType.Subject, [RuleValue.Text("urgent")])] };
         Assert.NotEqual(RuleSignature.Of(a), RuleSignature.Of(withException));
+    }
+
+    [Fact]
+    public void SignatureDoesNotDependOnTheUiLanguage()
+    {
+        var rule = FromRule(1, "r", ["a@example.com"]) with
+        {
+            Conditions = [new RuleCondition(ConditionType.Importance, [RuleValue.Importance(2)])],
+        };
+        Loc.Current = UiLanguage.Japanese;
+        string ja = RuleSignature.Of(rule);
+        Loc.Current = UiLanguage.English;
+        Assert.Equal(ja, RuleSignature.Of(rule));
     }
 }

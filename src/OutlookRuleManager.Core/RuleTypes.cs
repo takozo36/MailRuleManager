@@ -1,13 +1,13 @@
 namespace OutlookRuleManager.Core;
 
-/// <summary>受信ルールか送信ルールか（値は Outlook の OlRuleType と同じ）。</summary>
+/// <summary>Receive or send rule (values match Outlook's OlRuleType).</summary>
 public enum RuleKind
 {
     Receive = 0,
     Send = 1,
 }
 
-/// <summary>条件・例外の種類（値は Outlook の OlRuleConditionType と同じ）。</summary>
+/// <summary>Condition / exception type (values match Outlook's OlRuleConditionType).</summary>
 public enum ConditionType
 {
     Unknown = 0,
@@ -44,7 +44,7 @@ public enum ConditionType
     FromAnyRssFeed = 31,
 }
 
-/// <summary>処理（アクション）の種類（値は Outlook の OlRuleActionType と同じ）。</summary>
+/// <summary>Action type (values match Outlook's OlRuleActionType).</summary>
 public enum ActionType
 {
     Unknown = 0,
