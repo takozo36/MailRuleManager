@@ -1,9 +1,43 @@
 # Third-Party Notices
 
 This project uses the following third-party components.
-The application itself (`Outlook仕訳ルール管理.exe`) does not include any third-party library.
+The application itself (`Outlook仕訳ルール管理.exe`) does not include any third-party library binary.
 It calls Outlook Classic through COM late binding and does not reference or redistribute
 the Outlook primary interop assembly (`Microsoft.Office.Interop.Outlook`).
+
+## Outlook rules format (reimplemented in C#)
+
+`src/OutlookRuleManager.Core/RulesStream.cs` reads the Outlook rules stream (`PR_RW_RULES_STREAM`, the same
+format as `.rwz` files). The format is not documented by Microsoft; the C# implementation is based on the
+format analysis and parsers in the following projects, both licensed under the MIT License.
+
+- [asklar/rwzreader](https://github.com/asklar/rwzreader) — Copyright (c) 2021 Alexander Sklar
+- [hughbe/OutlookRulesReader](https://github.com/hughbe/OutlookRulesReader) — Copyright (c) 2021 Hugh Bellamy
+
+```
+MIT License
+
+Copyright (c) 2021 Alexander Sklar
+Copyright (c) 2021 Hugh Bellamy
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
 
 ## Test-only packages
 

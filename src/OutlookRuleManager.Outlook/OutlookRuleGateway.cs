@@ -50,15 +50,34 @@ public sealed class OutlookRuleGateway : IDisposable
         return list;
     });
 
+    /// <summary>直前の LoadRules がどちらの方法で読んだか（画面表示用）。</summary>
+    public string LastLoadNote { get; private set; } = "";
+
     /// <summary>
-    /// 全ルールを読み込む。条件・処理のオブジェクトを 1 つずつ Outlook に問い合わせるため
-    /// 1 件あたり 0.3 秒ほどかかる（呼び出し方式を変えても縮まらない、Outlook 側のコスト）。
+    /// 全ルールを読み込む。
+    /// まず受信トレイの隠しメッセージにある全ルールのまとめデータ（PR_RW_RULES_STREAM）を 1 回で取り出して解析する
+    /// （数秒）。取り出せない・解析できない・Outlook 側と件数や名前が合わない場合は、条件・処理を 1 つずつ
+    /// Outlook に問い合わせる方法に切り替える（1 件あたり 0.3 秒ほど）。
     /// 読めたルールから順に progress へ渡すので、画面は読み込み途中から表示できる。
     /// </summary>
-    public IReadOnlyList<RuleData> LoadRules(string storeId, IProgress<LoadProgress>? progress, CancellationToken cancel) => Guard(() =>
+    /// <param name="allowFast">false なら常に 1 件ずつ読む（検証用）。</param>
+    public IReadOnlyList<RuleData> LoadRules(string storeId, IProgress<LoadProgress>? progress, CancellationToken cancel, bool allowFast = true) => Guard(() =>
     {
         var rules = GetRules(storeId);
         int count = (int)rules.Count;
+
+        string? reason = null;
+        if (allowFast)
+        {
+            var fast = TryLoadFast(storeId, rules, count, cancel, out reason);
+            if (fast is not null)
+            {
+                foreach (var r in fast) progress?.Report(new LoadProgress(r, count));
+                LastLoadNote = "高速読み込み";
+                return fast;
+            }
+        }
+
         var list = new List<RuleData>(count);
         for (int i = 1; i <= count; i++)
         {
@@ -67,8 +86,95 @@ public sealed class OutlookRuleGateway : IDisposable
             list.Add(rule);
             progress?.Report(new LoadProgress(rule, count));
         }
+        LastLoadNote = reason is null ? "1 件ずつ読み込み" : $"1 件ずつ読み込み（高速読み込みできなかった理由: {reason}）";
         return list;
     });
+
+    /// <summary>
+    /// まとめデータからの読み込み。失敗したら null と理由を返す（例外は投げない）。
+    /// 解析結果は、件数・各位置の名前・有効/無効を Outlook のルールと照合してから使う。
+    /// </summary>
+    private List<RuleData>? TryLoadFast(string storeId, dynamic rules, int count, CancellationToken cancel, out string? reason)
+    {
+        IReadOnlyList<StreamRule> parsed;
+        try
+        {
+            parsed = RulesStream.Parse(ReadRulesStream(storeId));
+        }
+        catch (RulesStreamFormatException ex) { reason = ex.Message; return null; }
+        catch (Exception ex) when (ex is not OperationCanceledException) { reason = "ルールのまとめデータを取り出せません: " + ex.Message; return null; }
+
+        if (parsed.Count != count)
+        {
+            reason = $"件数が一致しません（まとめデータ {parsed.Count} 件、Outlook {count} 件）";
+            return null;
+        }
+
+        var folders = new Dictionary<string, FolderRef?>(StringComparer.OrdinalIgnoreCase);
+        var list = new List<RuleData>(count);
+        for (int i = 1; i <= count; i++)
+        {
+            cancel.ThrowIfCancellationRequested();
+            var p = parsed[i - 1];
+            dynamic rule = rules[i];
+            if ((string)rule.Name != p.Name || (bool)rule.Enabled != p.Enabled)
+            {
+                reason = $"{i} 番目のルールの名前か有効/無効が一致しません";
+                return null;
+            }
+            // 「このコンピューターのみ」は、このPCか別のPCかをまとめデータだけでは判定できないので Outlook に聞く
+            bool onThisMachine = !p.NeedsMachineCheck || (bool)rule.Conditions.OnLocalMachine.Enabled;
+            list.Add(p.ToRuleData(f => ResolveFolder(f, folders), onThisMachine, (bool)rule.IsLocalRule));
+        }
+        reason = null;
+        return list;
+    }
+
+    /// <summary>受信トレイの隠しメッセージ IPM.RuleOrganizer から PR_RW_RULES_STREAM を取り出す。</summary>
+    private byte[] ReadRulesStream(string storeId)
+    {
+        dynamic store = GetStore(storeId);
+        dynamic inbox = store.GetDefaultFolder(6 /* olFolderInbox */);
+        dynamic table = inbox.GetTable("", 1 /* olHiddenItems */);
+        table.Columns.Add("MessageClass");
+        table.Columns.Add("EntryID");
+        string? entryId = null;
+        while (!(bool)table.EndOfTable)
+        {
+            dynamic row = table.GetNextRow();
+            if ((string)row["MessageClass"] == "IPM.RuleOrganizer") { entryId = (string)row["EntryID"]; break; }
+        }
+        if (entryId is null) throw new InvalidOperationException("受信トレイに IPM.RuleOrganizer がありません");
+        dynamic item = Session.GetItemFromID(entryId, storeId);
+        return (byte[])item.PropertyAccessor.GetProperty(RulesStreamProperty);
+    }
+
+    private const string RulesStreamProperty = "http://schemas.microsoft.com/mapi/proptag/0x68020102";
+
+    /// <summary>まとめデータ内の EntryID を Outlook のフォルダーに変換する（同じフォルダーは 1 回だけ問い合わせる）。</summary>
+    private FolderRef? ResolveFolder(FolderRef raw, Dictionary<string, FolderRef?> cache)
+    {
+        if (cache.TryGetValue(raw.EntryId, out var hit)) return hit;
+        FolderRef? result = null;
+        try
+        {
+            object? f = raw.StoreId.Length > 0
+                ? (object?)Session.GetFolderFromID(raw.EntryId, raw.StoreId)
+                : (object?)Session.GetFolderFromID(raw.EntryId);
+            if (f is not null) result = OutlookRuleReader.ToFolderRef(f);
+        }
+        catch
+        {
+            try
+            {
+                object? f = Session.GetFolderFromID(raw.EntryId);
+                if (f is not null) result = OutlookRuleReader.ToFolderRef(f);
+            }
+            catch { /* 見つからない＝削除・移動されたフォルダー */ }
+        }
+        cache[raw.EntryId] = result;
+        return result;
+    }
 
     /// <summary>メールフォルダーのツリー（最上位は受信トレイなどストア直下のフォルダー）。</summary>
     public IReadOnlyList<FolderNode> LoadFolders(string storeId) => Guard(() =>

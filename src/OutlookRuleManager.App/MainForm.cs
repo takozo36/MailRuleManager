@@ -117,7 +117,7 @@ internal sealed partial class MainForm : Form
         _editor = new RuleListEditor(rules);
         _fileExistsCache.Clear();
         RefreshView();
-        _statusMessage.Text = $"{rules.Count} 件を読み込みました（{sw.Elapsed.TotalSeconds:0} 秒）";
+        _statusMessage.Text = $"{rules.Count} 件を読み込みました（{sw.Elapsed.TotalSeconds:0.0} 秒・{_gateway.LastLoadNote}）";
         _grid.Focus();
     }
     private async void OnStoreChanged(object? sender, EventArgs e)
