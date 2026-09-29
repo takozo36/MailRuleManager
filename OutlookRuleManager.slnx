@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/OutlookRuleManager.App/OutlookRuleManager.App.csproj" />
+    <Project Path="src/OutlookRuleManager.Core/OutlookRuleManager.Core.csproj" />
+    <Project Path="src/OutlookRuleManager.Outlook/OutlookRuleManager.Outlook.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/OutlookRuleManager.Core.Tests/OutlookRuleManager.Core.Tests.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWindowsForms>true</UseWindowsForms>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>OutlookRuleManager.App</RootNamespace>
+    <AssemblyName>Outlook仕訳ルール管理</AssemblyName>
+    <FileVersion>0.1.0</FileVersion>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+  </PropertyGroup>
+
+  <!-- dotnet publish 時に単一exeにまとめる設定 -->
+  <PropertyGroup>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <PublishSingleFile>true</PublishSingleFile>
+    <!-- ネイティブDLLもexeに同梱し、実行時に %TEMP%\.net\{アプリ名}\ へ展開する -->
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile Condition="'$(SelfContained)' == 'true'">true</EnableCompressionInSingleFile>
+    <!-- false: .NETランタイムはPC側のものを使う (exeが小さい)。
+         ランタイム未導入のPCでも動かすなら true (exeが約100MB増) -->
+    <SelfContained>false</SelfContained>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\OutlookRuleManager.Core\OutlookRuleManager.Core.csproj" />
+    <ProjectReference Include="..\OutlookRuleManager.Outlook\OutlookRuleManager.Outlook.csproj" />
+  </ItemGroup>
+</Project>

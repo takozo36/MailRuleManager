@@ -1,0 +1,153 @@
+# Outlook Classic Rule Manager（Outlook仕訳ルール管理）
+
+作成日: 2026-09-29
+更新日: 2026-09-29（公開準備。遅延バインディング化・免責・対応環境を追記）
+使用AIエージェント: Claude Code
+使用モデル: Claude Opus 5.5 / claude-opus-5-5
+
+A Windows app to search, bulk-edit, reorder, duplicate and diagnose rules in **Outlook Classic** —
+including detection of broken rules and rules that never run because an earlier rule stops processing.
+
+Outlook（クラシック）の仕訳ルールを、外部の一覧画面で検索・一括操作・複製・並べ替えし、
+エラーのあるルールや「前のルールで処理が止まって実行されないルール」を見つける Windows アプリです。
+
+> [!WARNING]
+> このアプリは Outlook（クラシック）の仕訳ルールを書き換えます。
+> 初めて「Outlook へ保存」を実行する前に、Outlook の「ルールと通知」→「オプション」→「ルールのエクスポート」で
+> ルールを .rwz ファイルにバックアップしてください。
+
+> [!NOTE]
+> 新しい Outlook（New Outlook）には対応していません。Outlook（クラシック）がインストールされ、起動できる必要があります。
+> 現在の版は **v0.1.0（プレビュー）** です。検証状況は下の「動作環境」を見てください。
+
+## できること
+
+| 分類 | 操作 |
+|---|---|
+| 見る | 全ルールを表形式で一覧（順番・有効・状態・名前・条件・移動先・処理・例外・種類）。行を選ぶと下に詳細 |
+| 探す | 名前・差出人・件名・移動先などを検索（空白区切りで AND。全角/半角・ひらがな/カタカナ・「ャ」と「ヤ」の違いは無視） |
+| 絞り込む | すべて / エラー・警告のあるもの / エラーのみ / 無効のもの / 未保存の変更があるもの |
+| 一括操作 | 複数選択して 有効化・無効化・削除・移動先の変更 |
+| 複製 | 選んだルールを複製して直後に追加（名前は「〜 のコピー」） |
+| 並べ替え | 上へ・下へ・先頭へ・末尾へ・位置を指定・2 件の入れ替え・ドラッグ＆ドロップ |
+| 元に戻す | 1 手ずつ戻す（Ctrl+Z）／変更をすべて破棄 |
+| 出力 | CSV（Excel で開ける）に書き出し |
+
+編集はすべてアプリ内だけで行い、**「Outlook へ保存」を押したときに初めて Outlook に反映**します。
+
+### 見つける問題
+
+| 重さ | 内容 |
+|---|---|
+| エラー | 移動先・コピー先フォルダーが存在しない（削除・移動された）／処理が 1 つもない／転送先をアドレス帳で解決できない／ルールを読み取れない |
+| 警告 | 先に実行されるルールが同じメールを処理して「処理を中止」するため、このルールは実行されない（差出人の一部だけ重なる場合も指摘）／サウンドファイルがない／条件の宛先を解決できない |
+| 情報 | 条件がまったく同じルールが他にもある／Outlook の画面でしか設定できない項目を含む（このアプリでは複製不可） |
+
+移動先フォルダーが消えたエラーは「移動先を変更」で指定し直せば直ります。
+
+## 動作環境
+
+| 項目 | 状況 |
+|---|---|
+| Windows 11 x64 ＋ Outlook（クラシック）x64（Microsoft 365 版 16.0） | 動作確認済み |
+| POP / IMAP の .pst ストア（ルール約 340 件） | 読み込み・診断・編集を確認済み |
+| 「Outlook へ保存」 | 保存直前までの全手順（変更の反映・複製と読み戻し照合・並べ替え・削除）を実機で確認済み。**最後の保存そのものは作者環境で検証中** |
+| Outlook（クラシック）x86 | 未確認 |
+| Exchange / Microsoft 365 のメールボックス | 未確認 |
+| 複数の Outlook プロファイル | 未確認（既定のプロファイルを使う） |
+| Windows ARM64 | 未確認 |
+| 新しい Outlook（New Outlook） | 非対応（Outlook のオブジェクトモデルが無いため） |
+
+実行には [.NET 8 デスクトップランタイム](https://dotnet.microsoft.com/download/dotnet/8.0) が必要です。
+
+## 使い方
+
+1. Outlook（クラシック）を起動した状態でアプリを起動します。既定のアカウントのルールを読み込み始めます。
+2. 読み込みには **1 件あたり約 0.35 秒**かかります（340 件で約 2 分）。読めたものから一覧に出るので、その間も閲覧・検索はできます。編集は読み込み完了後です。
+3. 編集して「Outlook へ保存」。確認画面で変更内容を確かめてから保存します。
+4. 保存後は読み込み直さず、保存した内容から一覧を組み立て直します。Outlook 側の最新状態を確かめたいときは「読み込み直す」（F5）を押します。
+
+### ショートカット
+
+| キー | 操作 |
+|---|---|
+| Ctrl+F | 検索欄へ |
+| Space | 選択したルールの有効/無効を切り替え |
+| F2 | 名前の変更 |
+| Ctrl+D | 複製 |
+| Delete | 削除 |
+| Alt+↑ / Alt+↓ | 上へ / 下へ |
+| Ctrl+Z | 元に戻す |
+| Ctrl+S | Outlook へ保存 |
+| F5 | 読み込み直す |
+
+## 安全のための仕組みと注意
+
+- 保存前に、読み込み時の状態を CSV で自動保存します
+  （`%LOCALAPPDATA%\Outlook仕訳ルール管理\保存前の記録\`）。これは確認用の記録で、復元には使えません。
+- **完全なバックアップは Outlook 側で取ってください**（.rwz エクスポート。上の警告を参照）。
+- 保存時、Outlook 側のルールが読み込み時から変わっていたら（件数・名前で照合）保存を中止します。
+- 複製したルールは、保存前に読み戻して元のルールと中身が同じか照合し、違えば保存を中止します。
+- 保存処理の途中で失敗した場合は Outlook に何も保存しません（Outlook は `Rules.Save()` を呼ぶまで変更を保存しないため）。
+- 保存中は Outlook の「ルールと通知」画面を開かないでください。
+- エラーのあるルールが残っていると Outlook が保存を拒否することがあります。その場合は先に移動先を直すか削除してください。
+
+## 既知の制限
+
+- Outlook（クラシック）専用。新しい Outlook には非対応
+- 読み込みに 1 件あたり 0.2〜0.35 秒かかる（Outlook 側の処理時間。詳細は技術ノート）
+- 編集できるのは名前・有効/無効・移動先・並び順・削除・複製。条件の中身（差出人など）は Outlook の画面で編集する
+- コピー先フォルダー（「フォルダーにコピーする」）の変更には未対応
+- スクリプト実行・アプリ起動など、Outlook の画面でしか設定できない項目を含むルールは複製できない
+- ドラッグで並べ替えられるのは 1 行ずつ（複数行はボタンで移動）
+
+## ビルド
+
+```bash
+dotnet build OutlookRuleManager.slnx
+```
+
+```bash
+dotnet test tests/OutlookRuleManager.Core.Tests
+```
+
+単一 exe の発行（配布は exe 1 ファイルのみ。.pdb は不要）:
+
+```bash
+dotnet publish src/OutlookRuleManager.App -c Release
+```
+
+出力: `src/OutlookRuleManager.App/bin/Release/net8.0-windows/win-x64/publish/Outlook仕訳ルール管理.exe`
+（約 1.3MB。.NET 8 デスクトップランタイムが必要。ランタイムごと同梱するなら `--self-contained true`）
+
+## 構成
+
+```
+OutlookRuleManager.slnx
+src/
+  OutlookRuleManager.Core/      画面にも Outlook にも依存しないロジック（編集・並べ替え・診断・検索・CSV）
+  OutlookRuleManager.Outlook/   Outlook のオブジェクトモデル（COM、遅延バインディング）で読み込み・保存
+  OutlookRuleManager.App/       WinForms の画面
+tests/
+  OutlookRuleManager.Core.Tests/  Core の単体テスト（xUnit）
+docs/
+  TECHNICAL_NOTES.md            Outlook のオブジェクトモデルについて実測で分かったこと
+```
+
+外部ライブラリはアプリ本体では使っていません（Outlook は遅延バインディングで呼び、相互運用アセンブリも参照しない）。
+テストで使うパッケージは [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) を参照してください。
+
+## 免責事項 / Disclaimer
+
+このソフトウェアは Outlook（クラシック）の仕訳ルールを変更します。変更を保存する前に、既存のルールを .rwz ファイルへエクスポートしてください。
+仕訳ルール・メッセージ・フォルダー・プロファイルの消失、破損、意図しない変更について、作者は責任を負いません。自己責任でお使いください。
+
+This software modifies Outlook Classic rules. Before saving changes, export your existing Outlook rules to an `.rwz` file.
+The author is not responsible for loss, corruption or unintended modification of Outlook rules, messages, folders or profiles.
+Use at your own risk.
+
+This project is not affiliated with or endorsed by Microsoft. Microsoft and Outlook are trademarks of the Microsoft group of companies.
+
+## ライセンス
+
+[MIT License](LICENSE)

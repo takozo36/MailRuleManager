@@ -1,0 +1,17 @@
+# 改行コードは変換しない（core.autocrlf の値に関わらず）
+* -text
+
+# バイナリとして扱う（差分を取らない）
+*.docx  binary
+*.xlsx  binary
+*.xlsm  binary
+*.pptx  binary
+*.pdf   binary
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.zip   binary
+*.exe   binary
+*.dll   binary
