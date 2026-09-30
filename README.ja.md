@@ -1,7 +1,7 @@
 # メール仕分けルールマネージャー for Outlook（クラシック）
 
 作成日: 2026-09-29
-更新日: 2026-09-30（アプリ名を変更）
+更新日: 2026-09-30（アプリ名を変更、ダウンロードの節を追加）
 使用AIエージェント: Claude Code
 使用モデル: Claude Opus 5.5 / claude-opus-5-5
 
@@ -60,7 +60,17 @@ Outlook（クラシック）の仕分けルールを、外部の一覧画面で�
 | Windows ARM64 | 未確認 |
 | 新しい Outlook（New Outlook） | 非対応（Outlook のオブジェクトモデルが無いため） |
 
-実行には [.NET 8 デスクトップランタイム](https://dotnet.microsoft.com/download/dotnet/8.0) が必要です。
+## ダウンロード
+
+ビルド済みの `MailRuleManager.exe` を [Releases](https://github.com/takozo36/MailRuleManager/releases) からダウンロードできます。
+インストールは不要です。好きなフォルダーに置いて起動します。
+
+- 実行には [.NET 8 デスクトップランタイム](https://dotnet.microsoft.com/download/dotnet/8.0) が必要です。
+  入っていない場合は、起動時に Windows がダウンロード先を案内します。
+- exe はコード署名をしていないため、初回起動時に「Windows によって PC が保護されました」と表示されることがあります。
+  「詳細情報」→「実行」で起動できます。気になる場合は、リリースに記載の SHA-256 と照合してください
+  （PowerShell で `Get-FileHash .\MailRuleManager.exe`）。下の「ビルド」の手順で自分でビルドすることもできます。
+- 現在の版はプレビューです。初めて「Outlook へ保存」する前に、必ずルールを .rwz ファイルにエクスポートしてください。
 
 ## 使い方
 

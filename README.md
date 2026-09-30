@@ -1,7 +1,7 @@
 # Mail Rule Manager for Classic Outlook
 
 Created: 2026-09-29
-Updated: 2026-09-30 (renamed the app; previously updated 2026-09-29 for English / Japanese UI and documents)
+Updated: 2026-09-30 (renamed the app, added the Download section; previously updated 2026-09-29 for English / Japanese UI and documents)
 AI agent: Claude Code
 Model: Claude Opus 5.5 / claude-opus-5-5
 
@@ -60,7 +60,17 @@ A missing move-to folder can be fixed with "Change folder".
 | Windows ARM64 | Not tested |
 | New Outlook | Not supported (it has no object model) |
 
-Requires the [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0).
+## Download
+
+Download the prebuilt `MailRuleManager.exe` from [Releases](https://github.com/takozo36/MailRuleManager/releases).
+No installation is needed; put it in any folder and run it.
+
+- Requires the [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0).
+  If it is not installed, Windows shows where to download it when the app starts.
+- The exe is not code-signed, so Windows may show "Windows protected your PC" the first time you run it.
+  Click "More info" → "Run anyway". If you want to check the file, compare it with the SHA-256 in the release notes
+  (`Get-FileHash .\MailRuleManager.exe` in PowerShell), or build it yourself (see "Build" below).
+- The current version is a preview. Before you use "Save to Outlook" for the first time, export your rules to an .rwz file.
 
 ## Usage
 
