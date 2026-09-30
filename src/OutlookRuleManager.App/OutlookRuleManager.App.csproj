@@ -10,6 +10,8 @@
     <AssemblyName>MailRuleManager</AssemblyName>
     <Product>Mail Rule Manager for Classic Outlook</Product>
     <FileVersion>0.1.0</FileVersion>
+    <!-- Product version (and assembly version) follow FileVersion so that only one place needs to change -->
+    <Version>$(FileVersion)</Version>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
   </PropertyGroup>
 
