@@ -1,7 +1,7 @@
 # Mail Rule Manager for Classic Outlook
 
 Created: 2026-09-29
-Updated: 2026-09-30 (renamed the app, added the Download section; previously updated 2026-09-29 for English / Japanese UI and documents)
+Updated: 2026-09-30 (renamed the app, added the Download section, marked "Save to Outlook" as tested; previously updated 2026-09-29 for English / Japanese UI and documents)
 AI agent: Claude Code
 Model: Claude Opus 5.5 / claude-opus-5-5
 
@@ -52,7 +52,7 @@ A missing move-to folder can be fixed with "Change folder".
 |---|---|
 | Windows 11 x64 + classic Outlook x64 (Microsoft 365, 16.0, Japanese) | Tested |
 | POP / IMAP .pst store (about 340 rules) | Loading, diagnostics and editing tested |
-| "Save to Outlook" | Every step up to the final save (applying changes, duplicating and verifying by reading back, reordering, deleting) was tested on a real mailbox. **The final save itself is still being verified by the author** |
+| "Save to Outlook" | Tested (edited rules were saved and correctly applied in Outlook on a real mailbox; every step before the save — applying changes, duplicating and verifying by reading back, reordering, deleting — was also tested) |
 | English Outlook | Not tested (the English UI of this app is tested) |
 | Classic Outlook x86 | Not tested |
 | Exchange / Microsoft 365 mailbox | Not tested |
