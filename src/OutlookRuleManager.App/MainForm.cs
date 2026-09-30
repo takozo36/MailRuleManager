@@ -29,7 +29,7 @@ internal sealed partial class MainForm : Form
     }
 
     /// <summary>Application name in the current language.</summary>
-    public static string AppName => T("Outlook仕訳ルール管理", "Outlook Classic Rule Manager");
+    public static string AppName => T("メール仕分けルールマネージャー for Outlook（クラシック）", "Mail Rule Manager for Classic Outlook");
 
     private static string Version
     {
@@ -57,7 +57,7 @@ internal sealed partial class MainForm : Form
         catch (Exception ex)
         {
             ShowError(T("Outlook に接続できませんでした。Outlook（クラシック）がインストールされ、起動できる状態か確認してください。",
-                "Could not connect to Outlook. Make sure Outlook Classic is installed and can be started."), ex);
+                "Could not connect to Outlook. Make sure classic Outlook is installed and can be started."), ex);
             return;
         }
         finally
@@ -89,7 +89,7 @@ internal sealed partial class MainForm : Form
             pending = true;
             _progress.Maximum = Math.Max(1, p.Total);
             _progress.Value = Math.Min(loaded.Count, _progress.Maximum);
-            _statusMessage.Text = T($"仕訳ルールを読み込んでいます… {loaded.Count} / {p.Total}（読み込んだものから表示しています）",
+            _statusMessage.Text = T($"仕分けルールを読み込んでいます… {loaded.Count} / {p.Total}（読み込んだものから表示しています）",
                 $"Loading rules… {loaded.Count} / {p.Total} (showing rules as they are read)");
         });
         using var refreshTimer = new System.Windows.Forms.Timer { Interval = 1000 };
@@ -108,7 +108,7 @@ internal sealed partial class MainForm : Form
             _store = store;
             _editor = null;
             _loadingRules = true;
-            SetBusy(true, T("仕訳ルールを読み込んでいます…", "Loading rules…"));
+            SetBusy(true, T("仕分けルールを読み込んでいます…", "Loading rules…"));
             RefreshView(keepSelection: false);
             refreshTimer.Start();
             rules = await Task.Run(() => _gateway.LoadRules(store.StoreId, progress, CancellationToken.None));
@@ -117,7 +117,7 @@ internal sealed partial class MainForm : Form
         {
             _editor = null;
             _statusMessage.Text = "";
-            ShowError(T("仕訳ルールを読み込めませんでした。", "Could not load the rules."), ex);
+            ShowError(T("仕分けルールを読み込めませんでした。", "Could not load the rules."), ex);
             return;
         }
         finally
@@ -685,7 +685,7 @@ internal sealed partial class MainForm : Form
         using var dlg = new SaveFileDialog
         {
             Filter = T("CSV ファイル (*.csv)|*.csv", "CSV files (*.csv)|*.csv"),
-            FileName = T("仕訳ルール", "OutlookRules") + $"_{DateTime.Now:yyyyMMdd_HHmm}.csv",
+            FileName = T("仕分けルール", "OutlookRules") + $"_{DateTime.Now:yyyyMMdd_HHmm}.csv",
         };
         if (dlg.ShowDialog(this) != DialogResult.OK) return;
         try

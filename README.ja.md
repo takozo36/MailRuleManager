@@ -1,17 +1,18 @@
-# Outlook仕訳ルール管理（Outlook Classic Rule Manager）
+# メール仕分けルールマネージャー for Outlook（クラシック）
 
 作成日: 2026-09-29
+更新日: 2026-09-30（アプリ名を変更）
 使用AIエージェント: Claude Code
 使用モデル: Claude Opus 5.5 / claude-opus-5-5
 
 [English](README.md) | **日本語**
 
-Outlook（クラシック）の仕訳ルールを、外部の一覧画面で検索・一括操作・複製・並べ替えし、
+Outlook（クラシック）の仕分けルールを、外部の一覧画面で検索・一括操作・複製・並べ替えし、
 エラーのあるルールや「前のルールで処理が止まって実行されないルール」を見つける Windows アプリです。
 画面は日本語と英語に対応しています（Windows の表示言語で自動選択。メニューから切り替え可能）。
 
 > [!WARNING]
-> このアプリは Outlook（クラシック）の仕訳ルールを書き換えます。
+> このアプリは Outlook（クラシック）の仕分けルールを書き換えます。
 > 初めて「Outlook へ保存」を実行する前に、Outlook の「ルールと通知」→「オプション」→「ルールのエクスポート」で
 > ルールを .rwz ファイルにバックアップしてください。
 
@@ -63,7 +64,7 @@ Outlook（クラシック）の仕訳ルールを、外部の一覧画面で検�
 
 ## 使い方
 
-1. Outlook（クラシック）を起動した状態で `OutlookRuleManager.exe` を起動します。既定のアカウントのルールを読み込み始めます。
+1. Outlook（クラシック）を起動した状態で `MailRuleManager.exe` を起動します。既定のアカウントのルールを読み込み始めます。
 2. 読み込みは **340 件で約 2 秒**です。Outlook が保存している全ルールのまとめデータを一度に読み、Outlook 側のルールと件数・名前・有効/無効を照合してから表示します。
    まとめデータを読めないとき（未知の種類の条件を含む等）は、1 件ずつ読む方法（1 件あたり約 0.3 秒）に自動で切り替えます。どちらで読んだかはステータスバーに出ます。
 3. 編集して「Outlook へ保存」。確認画面で変更内容を確かめてから保存します。
@@ -86,7 +87,7 @@ Outlook（クラシック）の仕訳ルールを、外部の一覧画面で検�
 ## 安全のための仕組みと注意
 
 - 保存前に、読み込み時の状態を CSV で自動保存します
-  （`%LOCALAPPDATA%\OutlookRuleManager\Backups\`）。これは確認用の記録で、復元には使えません。
+  （`%LOCALAPPDATA%\MailRuleManager\Backups\`）。これは確認用の記録で、復元には使えません。
 - **完全なバックアップは Outlook 側で取ってください**（.rwz エクスポート。上の警告を参照）。
 - 保存時、Outlook 側のルールが読み込み時から変わっていたら（件数・名前で照合）保存を中止します。
 - 複製したルールは、保存前に読み戻して元のルールと中身が同じか照合し、違えば保存を中止します。
@@ -94,7 +95,8 @@ Outlook（クラシック）の仕訳ルールを、外部の一覧画面で検�
 - 保存中は Outlook の「ルールと通知」画面を開かないでください。
 - エラーのあるルールが残っていると Outlook が保存を拒否することがあります。その場合は先に移動先を直すか削除してください。
 
-表示言語の設定は `%LOCALAPPDATA%\OutlookRuleManager\settings.ini` に保存します。
+表示言語の設定は `%LOCALAPPDATA%\MailRuleManager\settings.ini` に保存します。
+旧名のフォルダー（`%LOCALAPPDATA%\OutlookRuleManager\`）がある場合は、起動時に新しい名前へ自動で移します。
 
 ## 既知の制限
 
@@ -122,7 +124,7 @@ dotnet test tests/OutlookRuleManager.Core.Tests
 dotnet publish src/OutlookRuleManager.App -c Release
 ```
 
-出力: `src/OutlookRuleManager.App/bin/Release/net8.0-windows/win-x64/publish/OutlookRuleManager.exe`
+出力: `src/OutlookRuleManager.App/bin/Release/net8.0-windows/win-x64/publish/MailRuleManager.exe`
 （約 400KB。.NET 8 デスクトップランタイムが必要。ランタイムごと同梱するなら `--self-contained true`）
 
 ## 構成
@@ -148,8 +150,8 @@ docs/
 
 ## 免責事項
 
-このソフトウェアは Outlook（クラシック）の仕訳ルールを変更します。変更を保存する前に、既存のルールを .rwz ファイルへエクスポートしてください。
-仕訳ルール・メッセージ・フォルダー・プロファイルの消失、破損、意図しない変更について、作者は責任を負いません。自己責任でお使いください。
+このソフトウェアは Outlook（クラシック）の仕分けルールを変更します。変更を保存する前に、既存のルールを .rwz ファイルへエクスポートしてください。
+仕分けルール・メッセージ・フォルダー・プロファイルの消失、破損、意図しない変更について、作者は責任を負いません。自己責任でお使いください。
 
 このプロジェクトは Microsoft とは関係がなく、Microsoft が承認したものでもありません。Microsoft および Outlook は Microsoft グループの商標です。
 

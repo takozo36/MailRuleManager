@@ -9,7 +9,7 @@
 > これは [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)（英語）の日本語版です。ライセンス本文は英語の原文が有効です。
 
 このプロジェクトは、次のサードパーティの成果を利用しています。
-アプリ本体（`OutlookRuleManager.exe`）には、サードパーティのライブラリのバイナリを含みません。
+アプリ本体（`MailRuleManager.exe`）には、サードパーティのライブラリのバイナリを含みません。
 Outlook（クラシック）は COM の遅延バインディングで呼び出しており、Outlook の相互運用アセンブリ
 （`Microsoft.Office.Interop.Outlook`）は参照も再配布もしていません。
 

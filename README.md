@@ -1,23 +1,23 @@
-# Outlook Classic Rule Manager
+# Mail Rule Manager for Classic Outlook
 
 Created: 2026-09-29
-Updated: 2026-09-29 (English / Japanese UI and documents)
+Updated: 2026-09-30 (renamed the app; previously updated 2026-09-29 for English / Japanese UI and documents)
 AI agent: Claude Code
 Model: Claude Opus 5.5 / claude-opus-5-5
 
 **English** | [日本語](README.ja.md)
 
-A Windows app to search, bulk-edit, duplicate and reorder rules in **Outlook Classic**, and to find
+A Windows app to search, bulk-edit, duplicate and reorder rules in **classic Outlook**, and to find
 broken rules and rules that never run because an earlier rule stops processing.
 The UI is available in English and Japanese (chosen automatically from the Windows display language; can be switched from the menu).
 
 > [!WARNING]
-> This app modifies Outlook Classic rules.
+> This app modifies classic Outlook rules.
 > Before you use "Save to Outlook" for the first time, back up your rules to an .rwz file in Outlook:
 > "Rules and Alerts" → "Options" → "Export Rules".
 
 > [!NOTE]
-> The new Outlook is not supported. Outlook Classic must be installed and able to start.
+> The new Outlook is not supported. Classic Outlook must be installed and able to start.
 > This is **v0.1.0 (preview)**. See "Requirements and tested environments" below.
 
 ## Features
@@ -50,11 +50,11 @@ A missing move-to folder can be fixed with "Change folder".
 
 | Item | Status |
 |---|---|
-| Windows 11 x64 + Outlook Classic x64 (Microsoft 365, 16.0, Japanese) | Tested |
+| Windows 11 x64 + classic Outlook x64 (Microsoft 365, 16.0, Japanese) | Tested |
 | POP / IMAP .pst store (about 340 rules) | Loading, diagnostics and editing tested |
 | "Save to Outlook" | Every step up to the final save (applying changes, duplicating and verifying by reading back, reordering, deleting) was tested on a real mailbox. **The final save itself is still being verified by the author** |
 | English Outlook | Not tested (the English UI of this app is tested) |
-| Outlook Classic x86 | Not tested |
+| Classic Outlook x86 | Not tested |
 | Exchange / Microsoft 365 mailbox | Not tested |
 | Multiple Outlook profiles | Not tested (the default profile is used) |
 | Windows ARM64 | Not tested |
@@ -64,7 +64,7 @@ Requires the [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotn
 
 ## Usage
 
-1. Start Outlook Classic, then start `OutlookRuleManager.exe`. It starts loading the rules of the default account.
+1. Start classic Outlook, then start `MailRuleManager.exe`. It starts loading the rules of the default account.
 2. Loading takes **about 2 seconds for 340 rules**. The app reads the data in which Outlook stores all rules at once, checks the count, names and enabled flags against Outlook's rules, then shows them.
    If that data cannot be read (for example, it contains a condition of an unknown type), the app automatically falls back to reading rule by rule (about 0.3 s per rule). The status bar shows which method was used.
 3. Edit, then click "Save to Outlook". Review the changes in the confirmation dialog before saving.
@@ -87,7 +87,7 @@ Requires the [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotn
 ## Safety measures and cautions
 
 - Before saving, the state at load time is written as CSV
-  (`%LOCALAPPDATA%\OutlookRuleManager\Backups\`). This is a record for reference and cannot be used to restore.
+  (`%LOCALAPPDATA%\MailRuleManager\Backups\`). This is a record for reference and cannot be used to restore.
 - **Make a full backup in Outlook** (.rwz export; see the warning above).
 - When saving, if Outlook's rules changed since they were loaded (count and names are compared), saving is cancelled.
 - Duplicated rules are read back before saving and compared with the originals; if they differ, saving is cancelled.
@@ -95,11 +95,12 @@ Requires the [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotn
 - Do not open Outlook's "Rules and Alerts" dialog while saving.
 - Outlook may refuse to save while rules with errors remain. In that case, fix their move-to folder or delete them first.
 
-The language setting is stored in `%LOCALAPPDATA%\OutlookRuleManager\settings.ini`.
+The language setting is stored in `%LOCALAPPDATA%\MailRuleManager\settings.ini`.
+If the folder of the previous name (`%LOCALAPPDATA%\OutlookRuleManager\`) exists, it is moved to the new name at startup.
 
 ## Known limitations
 
-- Outlook Classic only; the new Outlook is not supported
+- Classic Outlook only; the new Outlook is not supported
 - Fast loading relies on analysis of an undocumented format (see the technical notes). If it cannot be used, loading falls back to rule by rule (0.2–0.35 s per rule)
 - Editable: name, enabled flag, move-to folder, order, deletion and duplication. Condition contents (such as senders) must be edited in Outlook
 - Changing the copy-to folder ("copy to folder" action) is not supported
@@ -123,7 +124,7 @@ Publish a single exe (distribute only the exe; the .pdb files are not needed):
 dotnet publish src/OutlookRuleManager.App -c Release
 ```
 
-Output: `src/OutlookRuleManager.App/bin/Release/net8.0-windows/win-x64/publish/OutlookRuleManager.exe`
+Output: `src/OutlookRuleManager.App/bin/Release/net8.0-windows/win-x64/publish/MailRuleManager.exe`
 (about 400 KB; requires the .NET 8 Desktop Runtime. Add `--self-contained true` to bundle the runtime.)
 
 ## Project structure
@@ -149,7 +150,7 @@ See [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) for the sources and the pac
 
 ## Disclaimer
 
-This software modifies Outlook Classic rules. Before saving changes, export your existing Outlook rules to an `.rwz` file.
+This software modifies classic Outlook rules. Before saving changes, export your existing Outlook rules to an `.rwz` file.
 The author is not responsible for loss, corruption or unintended modification of Outlook rules, messages, folders or profiles.
 Use at your own risk.
 

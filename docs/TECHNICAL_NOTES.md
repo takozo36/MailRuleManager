@@ -8,7 +8,7 @@ Model: Claude Opus 5.5 / claude-opus-5-5
 
 Everything here is behavior observed in the following environment. Other Outlook environments may behave differently.
 
-- Windows 11 x64, Outlook Classic x64 (Microsoft 365, 16.0.20430)
+- Windows 11 x64, classic Outlook x64 (Microsoft 365, 16.0.20430)
 - POP / IMAP .pst store, about 340 client-side rules
 
 ## How saving works, and the order of steps

@@ -7,8 +7,8 @@
     <UseWindowsForms>true</UseWindowsForms>
     <LangVersion>latest</LangVersion>
     <RootNamespace>OutlookRuleManager.App</RootNamespace>
-    <AssemblyName>OutlookRuleManager</AssemblyName>
-    <Product>Outlook Classic Rule Manager</Product>
+    <AssemblyName>MailRuleManager</AssemblyName>
+    <Product>Mail Rule Manager for Classic Outlook</Product>
     <FileVersion>0.1.0</FileVersion>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
   </PropertyGroup>

@@ -262,7 +262,7 @@ internal sealed partial class MainForm
         Text = $"{AppName} v{Version}";
 
         _accountLabel.Text = T("アカウント:", "Account:");
-        SetText(_reloadButton, T("読み込み直す", "Reload"), T("Outlook から仕訳ルールを読み込み直します (F5)", "Reload the rules from Outlook (F5)"));
+        SetText(_reloadButton, T("読み込み直す", "Reload"), T("Outlook から仕分けルールを読み込み直します (F5)", "Reload the rules from Outlook (F5)"));
         _searchLabel.Text = T("検索:", "Search:");
         _searchBox.ToolTipText = T("名前・差出人・件名・移動先などを検索（空白区切りで絞り込み） Ctrl+F",
             "Search names, senders, subjects, folders and more (space-separated terms narrow the results) Ctrl+F");

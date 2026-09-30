@@ -20,7 +20,7 @@ internal static class OutlookCom
     /// <summary>
     /// Assigns a property whose value is an object or an array (e.g. MoveToFolder.Folder, Subject.Text).
     /// Assigning through dynamic (x.Folder = folder) fails with "The operation failed" (0x80020009), while calling
-    /// IDispatch PROPERTYPUT directly succeeds (measured on Outlook Classic x64). Strings, booleans and numbers can be
+    /// IDispatch PROPERTYPUT directly succeeds (measured on classic Outlook x64). Strings, booleans and numbers can be
     /// assigned through dynamic without problems.
     /// </summary>
     public static void SetProperty(object target, string name, object? value) =>
@@ -32,7 +32,7 @@ internal static class OutlookCom
         var type = Type.GetTypeFromProgID("Outlook.Application")
             ?? throw new InvalidOperationException(Loc.T(
                 "Outlook（クラシック）が見つかりません。新しい Outlook（New Outlook）には対応していません。",
-                "Outlook Classic was not found. The new Outlook is not supported."));
+                "Classic Outlook was not found. The new Outlook is not supported."));
         return Activator.CreateInstance(type)
             ?? throw new InvalidOperationException(Loc.T("Outlook を起動できませんでした。", "Outlook could not be started."));
     }

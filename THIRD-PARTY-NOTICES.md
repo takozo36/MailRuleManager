@@ -7,8 +7,8 @@ Model: Claude Opus 5.5 / claude-opus-5-5
 **English** | [日本語](THIRD-PARTY-NOTICES.ja.md)
 
 This project uses the following third-party components.
-The application itself (`OutlookRuleManager.exe`) does not include any third-party library binary.
-It calls Outlook Classic through COM late binding and does not reference or redistribute
+The application itself (`MailRuleManager.exe`) does not include any third-party library binary.
+It calls classic Outlook through COM late binding and does not reference or redistribute
 the Outlook primary interop assembly (`Microsoft.Office.Interop.Outlook`).
 
 ## Outlook rules format (reimplemented in C#)

@@ -7,7 +7,7 @@ namespace OutlookRuleManager.Core;
 public sealed class RulesStreamFormatException(string message) : Exception(message);
 
 /// <summary>
-/// Reads the binary that Outlook Classic stores for all rules in PR_RW_RULES_STREAM of the hidden message
+/// Reads the binary that classic Outlook stores for all rules in PR_RW_RULES_STREAM of the hidden message
 /// (message class IPM.RuleOrganizer) in the Inbox. It has the same format as an exported .rwz file.
 ///
 /// The format is not documented by Microsoft. This C# implementation is based on the format analysis of the
@@ -544,7 +544,7 @@ public sealed class StreamRule
         };
     }
 
-    // Order of types when enumerating Outlook's RuleConditions / RuleActions (measured on Outlook Classic x64 16.0)
+    // Order of types when enumerating Outlook's RuleConditions / RuleActions (measured on classic Outlook x64 16.0)
     private static readonly int[] ConditionOrder = [4, 26, 9, 20, 11, 5, 10, 6, 3, 18, 13, 14, 15, 16, 17, 2, 23, 1, 12, 25, 27, 7, 8, 19, 21, 22, 24, 28, 29, 31, 30];
     private static readonly int[] ActionOrder = [1, 5, 4, 3, 24, 21, 25, 26, 27, 6, 7, 8, 2, 17, 29, 23, 9, 10, 11, 12, 13, 14, 15, 16, 19, 28, 18, 30];
 

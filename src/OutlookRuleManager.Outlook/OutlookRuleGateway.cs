@@ -16,7 +16,7 @@ public sealed record LoadProgress(RuleData Rule, int Total);
 public sealed class RulesChangedException(string message) : Exception(message);
 
 /// <summary>
-/// Loads and saves Outlook Classic rules.
+/// Loads and saves classic Outlook rules.
 /// Meant to be called from a thread other than the UI thread (calls take from seconds to tens of seconds).
 /// Outlook objects are handled with late binding (dynamic); see OutlookCom.
 /// </summary>
@@ -323,7 +323,7 @@ public sealed class OutlookRuleGateway : IDisposable
         catch (COMException ex)
         {
             string name = (string)store.DisplayName;
-            throw new InvalidOperationException(Loc.T($"「{name}」の仕訳ルールを取得できません: {ex.Message}", $"Cannot get the rules of \"{name}\": {ex.Message}"), ex);
+            throw new InvalidOperationException(Loc.T($"「{name}」の仕分けルールを取得できません: {ex.Message}", $"Cannot get the rules of \"{name}\": {ex.Message}"), ex);
         }
     }
 
